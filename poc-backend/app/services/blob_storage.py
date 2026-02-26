@@ -1,4 +1,5 @@
 import logging
+import asyncio
 from datetime import datetime, timezone, timedelta
 
 from azure.storage.blob import (
@@ -28,8 +29,9 @@ async def upload_pdf(pdf_bytes: bytes, blob_name: str) -> str:
     container_client = client.get_container_client(settings.blob_container)
     blob_client = container_client.get_blob_client(blob_name)
 
-    blob_client.upload_blob(
-        pdf_bytes,
+    await asyncio.to_thread(
+        blob_client.upload_blob,
+        data=pdf_bytes,
         overwrite=True,
         content_settings=ContentSettings(content_type="application/pdf"),
     )

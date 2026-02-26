@@ -1,18 +1,18 @@
 import logging
-from azure.ai.inference import ChatCompletionsClient
+from azure.ai.inference.aio import ChatCompletionsClient as AsyncChatCompletionsClient
 from azure.core.credentials import AzureKeyCredential
 
 from app.config import settings
 
 logger = logging.getLogger(__name__)
 
-_client: ChatCompletionsClient | None = None
+_client: AsyncChatCompletionsClient | None = None
 
 
-def _get_client() -> ChatCompletionsClient:
+def _get_client() -> AsyncChatCompletionsClient:
     global _client
     if _client is None:
-        _client = ChatCompletionsClient(
+        _client = AsyncChatCompletionsClient(
             endpoint=settings.ai_foundry_endpoint,
             credential=AzureKeyCredential(settings.ai_foundry_key),
         )
@@ -33,7 +33,7 @@ async def call_llm(
         messages.append({"role": "system", "content": system_prompt})
     messages.append({"role": "user", "content": prompt})
 
-    response = client.complete(
+    response = await client.complete(
         messages=messages,
         model=settings.ai_model,
         temperature=temperature if temperature is not None else settings.ai_temperature,

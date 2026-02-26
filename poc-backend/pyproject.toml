@@ -1,23 +1,54 @@
-[build-system]
-requires = ["setuptools>=68"]
-build-backend = "setuptools.backends.legacy:build"
-
 [project]
 name = "agentize-poc-backend"
 version = "0.1.0"
-description = "agentize.eu Enterprise AI Platform PoC Backend"
-requires-python = ">=3.12"
+description = "Enterprise AI platform for TWI generation"
+authors = [
+    { name = "agentize.eu", email = "info@agentize.eu" }
+]
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi==0.115.*",
+    "uvicorn[standard]==0.32.*",
+    "botbuilder-core==4.16.*",
+    "botbuilder-integration-aiohttp==4.16.*",
+    "aiohttp==3.10.*",
+    "langgraph==0.3.*",
+    "langchain-core==0.3.*",
+    "langsmith==0.2.*",
+    "azure-identity==1.19.*",
+    "azure-keyvault-secrets==4.9.*",
+    "azure-storage-blob==12.23.*",
+    "azure-ai-inference>=1.0.0b1,<2.0.0",
+    "pymongo==4.9.*",
+    "motor==3.6.*",
+    "jinja2==3.1.*",
+    "weasyprint==63.*",
+    "markdown==3.7.*",
+    "pydantic==2.10.*",
+    "pydantic-settings==2.7.*",
+    "python-dotenv==1.0.*",
+    "opentelemetry-api==1.29.*",
+    "opentelemetry-sdk==1.29.*",
+    "azure-monitor-opentelemetry==1.6.*"
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest==8.3.*",
+    "pytest-asyncio==0.25.*",
+    "httpx==0.28.*"
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
 python_files = ["test_*.py"]
-python_classes = ["Test*"]
-python_functions = ["test_*"]
 
-[tool.coverage.run]
-source = ["app"]
-omit = ["tests/*", "app/templates/*"]
-
-[tool.coverage.report]
-fail_under = 80
+[tool.mypy]
+python_version = "3.11"
+strict = true
+ignore_missing_imports = true
