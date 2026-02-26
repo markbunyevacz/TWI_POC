@@ -43,7 +43,7 @@ def after_revision(state: AgentState) -> str:
     """Route after revision — hard-cap at 3 revision rounds."""
     if state.get("revision_count", 0) >= 3:
         return "approve"   # Force final approval after max revisions
-    return "review"
+    return "regenerate"
 
 
 async def clarify_node(state: AgentState) -> AgentState:
@@ -96,7 +96,7 @@ def create_agent_graph():
         "revise",
         after_revision,
         {
-            "review": "generate",
+            "regenerate": "generate",
             "approve": "approve",
         },
     )
