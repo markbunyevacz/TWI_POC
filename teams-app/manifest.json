@@ -1,0 +1,49 @@
+{
+  "$schema": "https://developer.microsoft.com/en-us/json-schemas/teams/v1.17/MicrosoftTeams.schema.json",
+  "manifestVersion": "1.17",
+  "version": "0.1.0",
+  "id": "{{BOT_APP_ID}}",
+  "developer": {
+    "name": "agentize.eu",
+    "websiteUrl": "https://agentize.eu",
+    "privacyUrl": "https://agentize.eu/privacy",
+    "termsOfUseUrl": "https://agentize.eu/terms"
+  },
+  "name": {
+    "short": "agentize AI",
+    "full": "agentize.eu Enterprise AI Platform"
+  },
+  "description": {
+    "short": "AI munkautasítás generátor",
+    "full": "Enterprise AI platform gyártási munkautasítások (TWI) generálásához. GDPR-konform, EU adatközpontban fut."
+  },
+  "icons": {
+    "outline": "outline.png",
+    "color": "color.png"
+  },
+  "accentColor": "#1B4F72",
+  "bots": [
+    {
+      "botId": "{{BOT_APP_ID}}",
+      "scopes": ["personal", "team", "groupChat"],
+      "supportsFiles": false,
+      "commandLists": [
+        {
+          "scopes": ["personal"],
+          "commands": [
+            {
+              "title": "Új TWI",
+              "description": "Új munkautasítás generálása"
+            },
+            {
+              "title": "Segítség",
+              "description": "Használati útmutató"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "permissions": ["identity", "messageTeamMembers"],
+  "validDomains": ["{{BACKEND_FQDN}}"]
+}
