@@ -16,8 +16,8 @@ langsmith==0.2.*
 azure-identity==1.19.*
 azure-keyvault-secrets==4.9.*
 azure-storage-blob==12.23.*
-azure-ai-inference==1.0.*
-pymongo==4.10.*
+azure-ai-inference>=1.0.0b1,<2.0.0
+pymongo==4.9.*
 motor==3.6.*
 
 # PDF generation

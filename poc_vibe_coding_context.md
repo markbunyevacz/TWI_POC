@@ -74,7 +74,7 @@ User (Teams/Telegram)
 | Monitoring | Application Insights | PII masking kötelező |
 | Identity | Microsoft Entra ID | SSO/OBO, App Registration |
 | Deploy | Azure Container Apps | minReplicas: 1, VNET |
-| CI/CD | GitHub Actions | Build → ACR → Container App |
+| CI/CD | GitHub Actions | Build → GHCR → Container App |
 
 ---
 

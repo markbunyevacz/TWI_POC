@@ -1,6 +1,6 @@
 FROM python:3.12-slim
 
-# WeasyPrint system dependencies (Pango, HarfBuzz, GDK-PixBuf, FFI)
+# WeasyPrint rendszer-függőségek
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libpango-1.0-0 \
     libpangoft2-1.0-0 \

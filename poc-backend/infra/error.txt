@@ -1,0 +1,17 @@
+Sweden : The term 'Sweden' is not recogni
+zed as the name of a cmdlet, function, sc
+ript file, or operable program. Check the
+ spelling of the name, or if a path was i
+ncluded, verify that the path is correct 
+and try again.
+At C:\Users\Admin\.cursor\TWI_POC\poc-bac
+kend\infra\deploy.ps1:53 char:29
++ Write-Host 'â'   Day 1-2 | Sweden Cent
+ral | EU Data Zone Std    â'' ...
++                             ~~~~~~
+    + CategoryInfo          : ObjectNotF 
+   ound: (Sweden:String) [], ParentCont  
+  ainsErrorRecordException
+    + FullyQualifiedErrorId : CommandNot 
+   FoundException
+ 

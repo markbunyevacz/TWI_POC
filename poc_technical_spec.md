@@ -1914,19 +1914,31 @@ jobs:
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-      - name: Build and push to ACR
-        run: |
-          az acr build \
-            --registry ${{ vars.ACR_NAME }} \
-            --image poc-backend:${{ github.sha }} \
-            --file Dockerfile .
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push image to GHCR
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: |
+            ghcr.io/agentize-eu/poc-backend:${{ github.sha }}
+            ghcr.io/agentize-eu/poc-backend:latest
 
       - name: Deploy to Container App
         run: |
           az containerapp update \
             --name ca-agentize-poc-backend \
             --resource-group rg-agentize-poc-swedencentral \
-            --image ${{ vars.ACR_NAME }}.azurecr.io/poc-backend:${{ github.sha }}
+            --image ghcr.io/agentize-eu/poc-backend:${{ github.sha }}
 ```
 
 ---

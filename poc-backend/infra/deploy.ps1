@@ -1,4 +1,4 @@
-# deploy.ps1 — agentize.eu PoC Full Infrastructure Deploy
+# deploy.ps1 - agentize.eu PoC Full Infrastructure Deploy
 # Covers Day 1-2 checklist: App Reg, RG, Bicep, KV secrets, validation
 #
 # Prerequisites:
@@ -25,7 +25,7 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
-# ─── Helpers ──────────────────────────────────────────────────────────────────
+# --- Helpers ------------------------------------------------------------------
 
 function Write-Step($n, $msg) {
     Write-Host "`n[$n] $msg" -ForegroundColor Cyan
@@ -38,26 +38,26 @@ function Write-Fail($msg) { Write-Host "    ❌ $msg" -ForegroundColor Red }
 function Confirm-AzLogin {
     $account = az account show -o json 2>$null | ConvertFrom-Json
     if (-not $account) {
-        Write-Warn 'Not logged in — running az login...'
+        Write-Warn "Not logged in - running az login..."
         az login | Out-Null
         $account = az account show -o json | ConvertFrom-Json
     }
     return $account
 }
 
-# ─── Banner ───────────────────────────────────────────────────────────────────
+# --- Banner -------------------------------------------------------------------
 
 Write-Host ''
-Write-Host '╔══════════════════════════════════════════════════╗' -ForegroundColor Cyan
-Write-Host '║   agentize.eu PoC — Infrastructure Deploy        ║' -ForegroundColor Cyan
-Write-Host '║   Day 1-2 | Sweden Central | EU Data Zone Std    ║' -ForegroundColor Cyan
-Write-Host '╚══════════════════════════════════════════════════╝' -ForegroundColor Cyan
+Write-Host '+------------------------------------------------------+' -ForegroundColor Cyan
+Write-Host '|   agentize.eu PoC - Infrastructure Deploy            |' -ForegroundColor Cyan
+Write-Host '|   Day 1-2 | Sweden Central | EU Data Zone Std        |' -ForegroundColor Cyan
+Write-Host '+------------------------------------------------------+' -ForegroundColor Cyan
 
 if ($WhatIf) {
-    Write-Warn 'WhatIf mode — no resources will be created'
+    Write-Warn "WhatIf mode - no resources will be created"
 }
 
-# ─── Step 0: Prerequisites ────────────────────────────────────────────────────
+# --- Step 0: Prerequisites ----------------------------------------------------
 
 Write-Step 0 'Prerequisites'
 
@@ -72,7 +72,7 @@ $account = Confirm-AzLogin
 Write-Ok "Subscription: $($account.name) ($($account.id))"
 Write-Ok "Tenant: $($account.tenantId)"
 
-# ─── Step 1: Entra ID App Registration ───────────────────────────────────────
+# --- Step 1: Entra ID App Registration ---------------------------------------
 
 Write-Step 1 'Entra ID App Registration (Bot Framework identity)'
 
@@ -107,10 +107,10 @@ if ($BotAppId -and ($SkipAppReg -or $BotAppPassword)) {
             --query 'password' `
             -o tsv
         $BotAppPassword = $credResult
-        Write-Ok 'Client secret generated (2-year validity)'
+        Write-Ok "Client secret generated (2-year validity)"
 
         # Grant User.Read (required by Bot Framework for identity context)
-        $graphId = az ad sp list --filter "displayName eq 'Microsoft Graph'" --query '[0].id' -o tsv
+        $graphId = az ad sp list --filter "displayName eq 'Microsoft Graph'" --query "[0].id" -o tsv
         az ad app permission add `
             --id $BotAppId `
             --api 00000003-0000-0000-c000-000000000000 `
@@ -127,7 +127,7 @@ if ($BotAppId -and ($SkipAppReg -or $BotAppPassword)) {
     }
 }
 
-# ─── Step 2: Resource Group ───────────────────────────────────────────────────
+# --- Step 2: Resource Group ---------------------------------------------------
 
 Write-Step 2 "Resource Group: $ResourceGroup ($Location)"
 
@@ -138,11 +138,11 @@ if (-not $WhatIf) {
     Write-Warn "[WhatIf] Would create resource group $ResourceGroup"
 }
 
-# ─── Step 3: Bicep Deployment ─────────────────────────────────────────────────
+# --- Step 3: Bicep Deployment -------------------------------------------------
 
-Write-Step 3 'Bicep deployment (5-15 min — AI Foundry model takes longest)'
+Write-Step 3 'Bicep deployment (5-15 min - AI Foundry model takes longest)'
 
-$templateFile = Join-Path $PSScriptRoot 'main.bicep'
+$templateFile = Join-Path $PSScriptRoot "main.bicep"
 
 if (-not $WhatIf) {
     Write-Host '    Deploying... (tail Container App logs in another terminal to monitor)'
@@ -196,7 +196,7 @@ if (-not $WhatIf) {
     $containerAppPrincipalId = 'whatif-principal-id'
 }
 
-# ─── Step 4: Retrieve Generated Service Keys ──────────────────────────────────
+# --- Step 4: Retrieve Generated Service Keys ----------------------------------
 
 Write-Step 4 'Retrieving service keys for Key Vault storage'
 
@@ -229,7 +229,7 @@ if (-not $WhatIf) {
     $blobConnection  = 'DefaultEndpointsProtocol=https;AccountName=whatif'
 }
 
-# ─── Step 5: Grant Deployer Key Vault Access ──────────────────────────────────
+# --- Step 5: Grant Deployer Key Vault Access ----------------------------------
 
 Write-Step 5 'Granting deployer Key Vault Secrets Officer access'
 
@@ -252,7 +252,7 @@ if (-not $WhatIf) {
     Write-Warn '[WhatIf] Would assign Key Vault Secrets Officer to current user'
 }
 
-# ─── Step 6: Populate Key Vault Secrets ──────────────────────────────────────
+# --- Step 6: Populate Key Vault Secrets --------------------------------------
 
 Write-Step 6 "Populating Key Vault secrets ($keyVaultName)"
 
@@ -275,7 +275,7 @@ if (-not $WhatIf) {
     Write-Warn '[WhatIf] Would store 4 secrets in Key Vault'
 }
 
-# ─── Step 7: Restart Container App ───────────────────────────────────────────
+# --- Step 7: Restart Container App -------------------------------------------
 
 Write-Step 7 'Restarting Container App to resolve Key Vault secrets'
 
@@ -285,20 +285,20 @@ if (-not $WhatIf) {
         --name "ca-$ProjectPrefix-backend" `
         --resource-group $ResourceGroup `
         --revision-suffix "kvsecrets" | Out-Null
-    Write-Ok 'Container App updated — new revision starting'
+    Write-Ok 'Container App updated - new revision starting'
     Write-Host '    (Allow 30-60s for container to become healthy)'
 } else {
     Write-Warn '[WhatIf] Would restart Container App'
 }
 
-# ─── Step 8: Generate .env for local development ──────────────────────────────
+# --- Step 8: Generate .env for local development ------------------------------
 
 Write-Step 8 'Generating .env file for local development'
 
 $envContent = @"
-# .env — agentize.eu PoC Local Development
+# .env - agentize.eu PoC Local Development
 # Generated by deploy.ps1 on $(Get-Date -Format 'yyyy-MM-dd HH:mm')
-# DO NOT COMMIT — add .env to .gitignore
+# DO NOT COMMIT - add .env to .gitignore
 
 # Azure AI Foundry
 AI_FOUNDRY_ENDPOINT=$aiFoundryInferenceEp
@@ -333,14 +333,14 @@ LOG_LEVEL=INFO
 $envPath = Join-Path (Split-Path $PSScriptRoot) '.env'
 $envContent | Out-File -FilePath $envPath -Encoding utf8 -NoNewline
 Write-Ok ".env written to: $envPath"
-Write-Warn '.env contains secrets — verify .gitignore covers it'
+Write-Warn '.env contains secrets - verify .gitignore covers it'
 
-# ─── Summary ──────────────────────────────────────────────────────────────────
+# --- Summary ------------------------------------------------------------------
 
 Write-Host ''
-Write-Host '╔══════════════════════════════════════════════════╗' -ForegroundColor Green
-Write-Host '║   Day 1-2 Deployment Complete!                   ║' -ForegroundColor Green
-Write-Host '╚══════════════════════════════════════════════════╝' -ForegroundColor Green
+Write-Host '+------------------------------------------------------+' -ForegroundColor Green
+Write-Host '|   Day 1-2 Deployment Complete!                       |' -ForegroundColor Green
+Write-Host '+------------------------------------------------------+' -ForegroundColor Green
 Write-Host ''
 Write-Host "Resource Group : $ResourceGroup"
 Write-Host "Backend URL    : https://$backendFqdn"
