@@ -1,0 +1,57 @@
+---
+description: Bot Framework message handling and Adaptive Card patterns
+globs: poc-backend/app/bot/**/*.py
+alwaysApply: false
+---
+
+# Bot Framework + Adaptive Cards Patterns
+
+## Message Routing
+`on_message_activity` distinguishes two paths:
+1. `turn_context.activity.value` is set → Adaptive Card submit → `_handle_card_action()`
+2. No value → plain text → `_handle_text_message()`
+
+Never mix these paths.
+
+## Adaptive Card Actions
+All `Action.Submit` data payloads must include an `"action"` key. Recognized values:
+
+| action | handler behavior |
+|---|---|
+| `approve_draft` | Show final approval card |
+| `request_edit` | Resume graph at `revision` node |
+| `final_approve` | Resume graph at `output` node → PDF |
+| `reject` | Discard draft, inform user |
+
+## Card Text Length
+Adaptive Cards have a 2000-character display limit. Always truncate draft text:
+
+```python
+# ✅ GOOD
+"text": draft[:2000]
+```
+
+## Required UI Labels
+Every card displaying AI-generated content must include the warning label:
+
+```
+⚠️ AI által generált tartalom | Modell: {model} | Generálva: {generated_at}
+```
+
+## Sending Cards
+
+```python
+# ✅ GOOD — use CardFactory
+from botbuilder.core import CardFactory
+Activity(type=ActivityTypes.message, attachments=[CardFactory.adaptive_card(card)])
+
+# ❌ BAD — raw dict attachment
+Activity(attachments=[{"contentType": "...", "content": card}])
+```
+
+## Error Feedback
+Always send a user-readable message on failure. Never let the bot silently fail:
+
+```python
+await turn_context.send_activity(f"❌ Hiba: {result['message']}")
+```

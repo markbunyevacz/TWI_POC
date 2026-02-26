@@ -1,0 +1,44 @@
+---
+description: Azure service client patterns — AI Foundry, Cosmos DB, Blob Storage
+globs: poc-backend/app/services/**/*.py
+alwaysApply: false
+---
+
+# Azure Service Client Patterns
+
+## AI Foundry
+Use `azure-ai-inference` (`ChatCompletionsClient`). Never call OpenAI SDK directly — all LLM traffic goes through AI Foundry endpoint.
+
+- Endpoint: Sweden Central only (`swedencentral.inference.ai.azure.com`)
+- Model: `mistral-large-latest` (default) or `gpt-4o`
+- Always log input/output token counts for audit purposes
+
+```python
+# ✅ Always track token usage
+usage = response.usage
+logger.info(f"LLM: model={settings.ai_model}, in={usage.prompt_tokens}, out={usage.completion_tokens}")
+```
+
+## Cosmos DB (MongoDB API)
+Use `motor` (async). Connection string from `settings.cosmos_connection`. Database name from `settings.cosmos_database`.
+
+Required indexes (create on startup or via Bicep):
+- `conversations`: `{ conversation_id: 1 }` unique, TTL 90 days on `last_activity`
+- `generated_documents`: `{ tenant_id: 1, created_at: -1 }`, `{ conversation_id: 1 }`
+- `audit_log`: `{ tenant_id: 1, created_at: -1 }`, `{ event_type: 1 }`
+
+## Blob Storage
+PDF blobs stored at `twi/{conversation_id}/{uuid}.pdf`. Always return a **SAS URL with 24h expiry** — never a public URL.
+
+```python
+# ✅ SAS URL with expiry
+expiry=datetime.now(timezone.utc) + timedelta(hours=24)
+```
+
+## Key Vault
+Secrets are injected as environment variables via Container App secret refs. Do NOT call Key Vault directly at runtime — `pydantic-settings` reads from env vars.
+
+## Security Notes
+- `publicNetworkAccess: Enabled` is acceptable for PoC only
+- `allowBlobPublicAccess: false` always
+- `minimumTlsVersion: TLS1_2` always

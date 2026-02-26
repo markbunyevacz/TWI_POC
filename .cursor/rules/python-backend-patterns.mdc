@@ -1,0 +1,67 @@
+---
+description: FastAPI + Python backend patterns for agentize.eu PoC
+globs: poc-backend/**/*.py
+alwaysApply: false
+---
+
+# Python Backend Patterns
+
+## Configuration
+Always use `pydantic-settings` with `BaseSettings`. Never hardcode secrets.
+
+```python
+# ✅ GOOD
+from app.config import settings
+endpoint = settings.ai_foundry_endpoint
+
+# ❌ BAD
+endpoint = "https://hardcoded-value.azure.com"
+```
+
+## Async-First
+All service calls, DB operations, and I/O must be `async`. Use `motor` (not `pymongo` directly) for MongoDB.
+
+```python
+# ✅ GOOD
+async def get_conversation(conversation_id: str):
+    return await self.collection.find_one({"conversation_id": conversation_id})
+
+# ❌ BAD
+def get_conversation(conversation_id: str):
+    return self.collection.find_one({"conversation_id": conversation_id})
+```
+
+## Error Handling
+Never silently swallow exceptions. Log and re-raise or return structured error state.
+
+```python
+# ✅ GOOD
+try:
+    result = await call_llm(prompt)
+except Exception as e:
+    logger.error(f"LLM call failed: {e}", exc_info=True)
+    return {**state, "status": "error", "message": str(e)}
+```
+
+## Singleton Clients
+Azure service clients (AI Foundry, Blob, Cosmos) must use module-level singletons — never instantiate per-request.
+
+```python
+_client = None
+
+def _get_client():
+    global _client
+    if _client is None:
+        _client = ChatCompletionsClient(...)
+    return _client
+```
+
+## Project Structure
+Follow the established layout:
+- `app/agent/nodes/` — one file per LangGraph node
+- `app/services/` — one file per Azure service client
+- `app/bot/` — Bot Framework handler + Adaptive Cards
+- `app/models/` — Pydantic data models
+
+## Testing
+Use `pytest-asyncio` for all async tests. Target ≥80% coverage for new code.

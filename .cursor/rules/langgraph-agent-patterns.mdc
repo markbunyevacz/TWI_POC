@@ -1,0 +1,48 @@
+---
+description: LangGraph agent state, nodes, and graph patterns for agentize.eu PoC
+globs: poc-backend/app/agent/**/*.py
+alwaysApply: false
+---
+
+# LangGraph Agent Patterns
+
+## State Definition
+`AgentState` is a `TypedDict`. All fields must have types. Status values are the contract between nodes and the bot handler.
+
+Valid `status` values: `"processing"` | `"review_needed"` | `"revision_requested"` | `"approved"` | `"completed"` | `"error"`
+
+## Node Contract
+Every node receives `AgentState` and returns a **partial state dict** using spread:
+
+```python
+# ✅ GOOD
+async def my_node(state: AgentState) -> AgentState:
+    result = await do_work(state["message"])
+    return {**state, "draft": result, "status": "review_needed"}
+
+# ❌ BAD — mutate state in-place
+async def my_node(state: AgentState) -> AgentState:
+    state["draft"] = result
+    return state
+```
+
+## Graph Interrupt Points
+Human-in-the-loop checkpoints are `interrupt_before=["review", "approve"]`. Never add new interrupt points without updating `bot_handler.py` to resume accordingly.
+
+## Resuming After Interrupt
+Always use `_build_resume_state()` to construct the state update before resuming:
+
+```python
+# resume_from="revision" → sets status + revision_feedback
+# resume_from="output"   → sets status="approved" + approval_timestamp
+```
+
+## Revision Loop Limit
+The `after_revision` conditional enforces **max 3 revision rounds** before forcing approval. Keep this guard in place.
+
+## Routing Functions
+Conditional edge functions (`should_generate`, `after_review`, `after_revision`) must be pure functions — no side effects, no I/O. They only read state and return a node name string.
+
+## Checkpointer
+- PoC: `MemorySaver` (in-memory, process-scoped)
+- Production upgrade path: Cosmos DB checkpointer using `thread_id = conversation_id`

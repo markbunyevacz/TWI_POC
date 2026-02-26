@@ -1,0 +1,41 @@
+---
+description: EU AI Act transparency labeling — required on all AI-generated output
+alwaysApply: true
+---
+
+# EU AI Act Compliance
+
+## Mandatory Labeling
+Every AI-generated content output **must** carry this label — no exceptions.
+
+**In-text (draft, bot messages):**
+```
+⚠️ AI által generált tartalom — emberi felülvizsgálat szükséges.
+```
+
+**In PDF footer (via Jinja2 template):**
+```
+agentize.eu — AI által generált tartalom — {page}/{pages}
+```
+
+**In Adaptive Cards:**
+```
+⚠️ AI által generált tartalom | Modell: {model} | Generálva: {generated_at}
+```
+
+## Human-in-the-Loop (Mandatory)
+Two approval checkpoints are required before any PDF is generated:
+1. **Review Checkpoint** (`interrupt_before=["review"]`) — draft approval or edit request
+2. **Final Approval Checkpoint** (`interrupt_before=["approve"]`) — explicit "I have verified" confirmation
+
+Never skip or bypass either checkpoint, even in test/dev environments.
+
+## Audit Trail
+Every completed generation must log to `audit_log` collection:
+- `user_id`, `tenant_id`, `channel`
+- `llm_model`, `llm_tokens_input`, `llm_tokens_output`
+- `approval_timestamp` (ISO 8601 UTC)
+- `revision_count`
+
+## LLM Generation Temperature
+Keep `temperature ≤ 0.3` for TWI generation to reduce hallucination risk. Intent classification uses `temperature=0.1`.

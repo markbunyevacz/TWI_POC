@@ -1,0 +1,33 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "location": {
+      "value": "swedencentral"
+    },
+    "projectPrefix": {
+      "value": "agentize-poc"
+    },
+    "aiModel": {
+      "value": "mistral-large-latest"
+    },
+    "minReplicas": {
+      "value": 1
+    },
+    "cosmosThroughputMode": {
+      "value": "serverless"
+    },
+    "botAppId": {
+      "value": "<ENTRA_APP_REGISTRATION_CLIENT_ID>"
+    },
+    "botAppPassword": {
+      "value": "<ENTRA_APP_REGISTRATION_CLIENT_SECRET>"
+    },
+    "telegramBotToken": {
+      "value": ""
+    },
+    "containerImage": {
+      "value": "ghcr.io/agentize-eu/poc-backend:latest"
+    }
+  }
+}

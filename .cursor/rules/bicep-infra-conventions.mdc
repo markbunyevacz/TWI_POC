@@ -1,0 +1,58 @@
+---
+description: Azure Bicep infrastructure naming, region, and deployment conventions
+globs: poc-backend/infra/**/*.bicep
+alwaysApply: false
+---
+
+# Bicep Infrastructure Conventions
+
+## Region
+**KIZÁRÓLAG Sweden Central** (`swedencentral`). This is the only Azure region with contractual EU Data Zone Standard guarantee for AI Foundry.
+
+```bicep
+// ✅ GOOD
+param location string = 'swedencentral'
+
+// ❌ BAD
+param location string = 'westeurope'
+```
+
+## Naming Convention
+`{resource-type}-{projectPrefix}` pattern using `projectPrefix = 'agentize-poc'`:
+
+| Resource | Name |
+|---|---|
+| Resource Group | `rg-agentize-poc-swedencentral` |
+| VNET | `vnet-agentize-poc` |
+| Container App Env | `cae-agentize-poc` |
+| Container App | `ca-agentize-poc-backend` |
+| AI Foundry | `ai-agentize-poc` |
+| Cosmos DB | `cosmos-agentize-poc` |
+| Key Vault | `kv-agentize-poc` |
+| Bot Service | `bot-agentize-poc` |
+| Storage Account | `stagentizepoc` (no dashes — storage name constraint) |
+
+## AI Foundry Model Deployment
+Must use `DataZoneStandard` SKU — **not** `GlobalStandard`:
+
+```bicep
+// ✅ GOOD
+sku: { name: 'DataZoneStandard', capacity: 10 }
+
+// ❌ BAD
+sku: { name: 'GlobalStandard', capacity: 10 }
+```
+
+## Container App Scaling
+`minReplicas: 1` eliminates cold start (~$10/month cost). `maxReplicas: 5` with HTTP scaling at 20 concurrent requests.
+
+## Secrets via Key Vault References
+Container App secrets must reference Key Vault — never pass secrets as plain env var values:
+
+```bicep
+// ✅ GOOD
+secrets: [{ name: 'ai-foundry-key', keyVaultUrl: '${keyVault.properties.vaultUri}secrets/ai-foundry-key' }]
+```
+
+## Bot Service Location
+Always `'global'` — Bot Service does not support regional deployment.
