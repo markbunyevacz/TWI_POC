@@ -69,8 +69,8 @@ To use the bot in Teams, you need to package the Manifest file.
    - Replace `{{BACKEND_FQDN}}` with the backend URL from Step 1 (e.g., `ca-agentize-poc-backend.something.swedencentral.azurecontainerapps.io`). Do not include `https://`.
 3. Create a ZIP file containing:
    - `manifest.json`
-   - `color.png` (You'll need to add a 192x192 logo here)
-   - `outline.png` (You'll need to add a 32x32 transparent logo here)
+   - `color.png` (Included 192x192 logo)
+   - `outline.png` (Included 32x32 transparent logo)
    *Make sure these files are at the root of the ZIP file, not inside a folder.*
 
 ---
