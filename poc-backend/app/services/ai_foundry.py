@@ -24,8 +24,8 @@ async def call_llm(
     system_prompt: str | None = None,
     temperature: float | None = None,
     max_tokens: int | None = None,
-) -> str:
-    """Call Azure AI Foundry (Mistral Large / GPT-4o) and return the response text."""
+) -> tuple[str, int]:
+    """Call Azure AI Foundry (Mistral Large / GPT-4o) and return the response text and total tokens used."""
     client = _get_client()
 
     messages: list[dict] = []
@@ -48,4 +48,4 @@ async def call_llm(
         usage.prompt_tokens,
         usage.completion_tokens,
     )
-    return content
+    return content, usage.total_tokens

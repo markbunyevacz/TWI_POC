@@ -36,7 +36,7 @@ class TestGenerateNode:
     async def test_draft_includes_eu_ai_act_label(self):
         with patch(
             "app.agent.nodes.generate.call_llm",
-            new=AsyncMock(return_value=_LLM_RESPONSE),
+            new=AsyncMock(return_value=(_LLM_RESPONSE, 50)),
         ):
             from app.agent.nodes.generate import generate_node
 
@@ -49,7 +49,7 @@ class TestGenerateNode:
     async def test_status_set_to_review_needed(self):
         with patch(
             "app.agent.nodes.generate.call_llm",
-            new=AsyncMock(return_value=_LLM_RESPONSE),
+            new=AsyncMock(return_value=(_LLM_RESPONSE, 50)),
         ):
             from app.agent.nodes.generate import generate_node
 
@@ -61,7 +61,7 @@ class TestGenerateNode:
     async def test_draft_metadata_contains_required_keys(self):
         with patch(
             "app.agent.nodes.generate.call_llm",
-            new=AsyncMock(return_value=_LLM_RESPONSE),
+            new=AsyncMock(return_value=(_LLM_RESPONSE, 50)),
         ):
             from app.agent.nodes.generate import generate_node
 
@@ -76,7 +76,7 @@ class TestGenerateNode:
     async def test_llm_model_set_in_state(self):
         with patch(
             "app.agent.nodes.generate.call_llm",
-            new=AsyncMock(return_value=_LLM_RESPONSE),
+            new=AsyncMock(return_value=(_LLM_RESPONSE, 50)),
         ):
             from app.agent.nodes.generate import generate_node
 
@@ -92,7 +92,7 @@ class TestGenerateNode:
 
         async def mock_llm(prompt, system_prompt=None, temperature=None, max_tokens=None):
             captured.append({"prompt": prompt})
-            return _LLM_RESPONSE
+            return _LLM_RESPONSE, 50
 
         state_with_revision = {
             **_BASE_STATE,
@@ -115,7 +115,7 @@ class TestGenerateNode:
         state = {**_BASE_STATE, "revision_count": 2}
         with patch(
             "app.agent.nodes.generate.call_llm",
-            new=AsyncMock(return_value=_LLM_RESPONSE),
+            new=AsyncMock(return_value=(_LLM_RESPONSE, 50)),
         ):
             from app.agent.nodes.generate import generate_node
 
@@ -127,7 +127,7 @@ class TestGenerateNode:
     async def test_draft_content_contains_llm_response(self):
         with patch(
             "app.agent.nodes.generate.call_llm",
-            new=AsyncMock(return_value=_LLM_RESPONSE),
+            new=AsyncMock(return_value=(_LLM_RESPONSE, 50)),
         ):
             from app.agent.nodes.generate import generate_node
 
@@ -142,7 +142,7 @@ class TestGenerateNode:
 
         async def mock_llm(prompt, system_prompt=None, temperature=None, max_tokens=None):
             captured.append(temperature)
-            return _LLM_RESPONSE
+            return _LLM_RESPONSE, 50
 
         with patch("app.agent.nodes.generate.call_llm", new=mock_llm):
             from app.agent.nodes.generate import generate_node
@@ -160,7 +160,7 @@ class TestIntentNodeTemperature:
 
         async def mock_llm(prompt, system_prompt=None, temperature=None, max_tokens=None):
             captured.append(temperature)
-            return "generate_twi"
+            return "generate_twi", 10
 
         with patch("app.agent.nodes.intent.call_llm", new=mock_llm):
             from app.agent.nodes.intent import intent_node

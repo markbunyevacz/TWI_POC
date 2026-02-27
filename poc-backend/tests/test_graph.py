@@ -136,7 +136,7 @@ class TestIntentNode:
     async def test_generate_twi_intent(self):
         with patch(
             "app.agent.nodes.intent.call_llm",
-            new=AsyncMock(return_value="generate_twi"),
+            new=AsyncMock(return_value=("generate_twi", 10)),
         ):
             from app.agent.nodes.intent import intent_node
 
@@ -147,7 +147,7 @@ class TestIntentNode:
     async def test_invalid_llm_response_defaults_to_unknown(self):
         with patch(
             "app.agent.nodes.intent.call_llm",
-            new=AsyncMock(return_value="gibberish"),
+            new=AsyncMock(return_value=("gibberish", 10)),
         ):
             from app.agent.nodes.intent import intent_node
 
@@ -160,7 +160,7 @@ class TestIntentNode:
     )
     async def test_all_valid_intents_pass_through(self, intent):
         with patch(
-            "app.agent.nodes.intent.call_llm", new=AsyncMock(return_value=intent)
+            "app.agent.nodes.intent.call_llm", new=AsyncMock(return_value=(intent, 10))
         ):
             from app.agent.nodes.intent import intent_node
 

@@ -18,7 +18,7 @@ _VALID_INTENTS = {"generate_twi", "edit_twi", "question", "unknown"}
 
 async def intent_node(state: AgentState) -> AgentState:
     """Classify user intent using LLM (temperature=0.1 for deterministic output)."""
-    response = await call_llm(
+    response, tokens = await call_llm(
         prompt=_INTENT_PROMPT.format(message=state["message"]),
         temperature=0.1,
         max_tokens=20,
@@ -27,4 +27,5 @@ async def intent_node(state: AgentState) -> AgentState:
     if intent not in _VALID_INTENTS:
         intent = "unknown"
 
-    return {**state, "intent": intent}
+    current_tokens = state.get("llm_tokens_used") or 0
+    return {**state, "intent": intent, "llm_tokens_used": current_tokens + tokens}
