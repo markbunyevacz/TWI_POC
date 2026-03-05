@@ -59,7 +59,7 @@ def create_agent_graph():
     """Build and compile the LangGraph agent graph."""
     builder = StateGraph(AgentState)
 
-    builder.add_node("intent", intent_node)
+    builder.add_node("classify_intent", intent_node)
     builder.add_node("process_input", process_input_node)
     builder.add_node("generate", generate_node)
     builder.add_node("review", review_node)
@@ -69,9 +69,9 @@ def create_agent_graph():
     builder.add_node("audit", audit_node)
     builder.add_node("clarify", clarify_node)
 
-    builder.set_entry_point("intent")
+    builder.set_entry_point("classify_intent")
     builder.add_conditional_edges(
-        "intent",
+        "classify_intent",
         should_generate,
         {
             "process_input": "process_input",
