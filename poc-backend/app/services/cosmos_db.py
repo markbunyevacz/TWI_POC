@@ -35,7 +35,13 @@ def _get_db() -> AsyncIOMotorDatabase:
 
 class ConversationStore:
     def __init__(self) -> None:
-        self.collection = _get_db()["conversations"]
+        self._collection = None
+
+    @property
+    def collection(self):
+        if self._collection is None:
+            self._collection = _get_db()["conversations"]
+        return self._collection
 
     async def get_or_create(
         self,
@@ -71,7 +77,13 @@ class ConversationStore:
 
 class AuditStore:
     def __init__(self) -> None:
-        self.collection = _get_db()["audit_log"]
+        self._collection = None
+
+    @property
+    def collection(self):
+        if self._collection is None:
+            self._collection = _get_db()["audit_log"]
+        return self._collection
 
     async def log(self, entry: dict) -> None:
         entry["created_at"] = datetime.now(timezone.utc)
@@ -81,7 +93,13 @@ class AuditStore:
 
 class DocumentStore:
     def __init__(self) -> None:
-        self.collection = _get_db()["generated_documents"]
+        self._collection = None
+
+    @property
+    def collection(self):
+        if self._collection is None:
+            self._collection = _get_db()["generated_documents"]
+        return self._collection
 
     async def save(self, doc: dict) -> dict:
         doc["created_at"] = datetime.now(timezone.utc)
