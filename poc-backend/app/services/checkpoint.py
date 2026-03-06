@@ -55,6 +55,11 @@ class MongoDBSaver(BaseCheckpointSaver):
         metadata = doc.get("metadata", {})
         parent_config = doc.get("parent_config")
 
+        pending_writes = [
+            (pw["task_id"], pw["channel"], pw["value"])
+            for pw in doc.get("pending_writes", [])
+        ]
+
         return CheckpointTuple(
             config={
                 "configurable": {
@@ -65,6 +70,7 @@ class MongoDBSaver(BaseCheckpointSaver):
             checkpoint=checkpoint,
             metadata=metadata,
             parent_config=parent_config,
+            pending_writes=pending_writes,
         )
 
     async def alist(
@@ -92,6 +98,10 @@ class MongoDBSaver(BaseCheckpointSaver):
 
         results: list[CheckpointTuple] = []
         async for doc in cursor:
+            pending_writes = [
+                (pw["task_id"], pw["channel"], pw["value"])
+                for pw in doc.get("pending_writes", [])
+            ]
             results.append(
                 CheckpointTuple(
                     config={
@@ -103,6 +113,7 @@ class MongoDBSaver(BaseCheckpointSaver):
                     checkpoint=doc["checkpoint"],
                     metadata=doc.get("metadata", {}),
                     parent_config=doc.get("parent_config"),
+                    pending_writes=pending_writes,
                 )
             )
         return results
