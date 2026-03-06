@@ -211,6 +211,14 @@ class AgentizeBotHandler(ActivityHandler):
                 )
                 return
 
+            if result.get("status") == "error":
+                await self._send_message(
+                    turn_context,
+                    "❌ Hiba a szerkesztés során. Kérlek próbáld újra.",
+                    channel_id,
+                )
+                return
+
             card = create_review_card(
                 draft=result.get("draft", ""),
                 metadata=result.get("draft_metadata", {}),
@@ -246,6 +254,14 @@ class AgentizeBotHandler(ActivityHandler):
                 await self._send_message(
                     turn_context,
                     "❌ Váratlan hiba történt. Kérlek próbáld újra később.",
+                    channel_id,
+                )
+                return
+
+            if result.get("status") == "error":
+                await self._send_message(
+                    turn_context,
+                    "❌ PDF generálás sikertelen. Kérlek próbáld újra.",
                     channel_id,
                 )
                 return

@@ -346,6 +346,42 @@ class TestHandleCardAction:
         assert not any("kaboom" in c for c in calls)
         assert any("Váratlan hiba" in c for c in calls)
 
+    @pytest.mark.asyncio
+    async def test_request_edit_error_status_shows_error_message(self):
+        """When run_agent returns status='error' during request_edit, user gets error."""
+        handler = _make_handler_for_card_action()
+
+        ctx = _make_turn_context(
+            value={"action": "request_edit", "feedback": "fix it"},
+        )
+
+        with patch(
+            "app.bot.bot_handler.run_agent",
+            new=AsyncMock(return_value={"status": "error", "draft": ""}),
+        ):
+            await handler.on_message_activity(ctx)
+
+        calls = [str(c) for c in ctx.send_activity.call_args_list]
+        assert any("Hiba" in c for c in calls)
+
+    @pytest.mark.asyncio
+    async def test_final_approve_error_status_shows_error_message(self):
+        """When run_agent returns status='error' during final_approve, user gets error."""
+        handler = _make_handler_for_card_action()
+
+        ctx = _make_turn_context(
+            value={"action": "final_approve", "draft": "d", "metadata": {}},
+        )
+
+        with patch(
+            "app.bot.bot_handler.run_agent",
+            new=AsyncMock(return_value={"status": "error"}),
+        ):
+            await handler.on_message_activity(ctx)
+
+        calls = [str(c) for c in ctx.send_activity.call_args_list]
+        assert any("PDF generálás sikertelen" in c or "Hiba" in c for c in calls)
+
 
 # ---------------------------------------------------------------------------
 # Telegram fallback

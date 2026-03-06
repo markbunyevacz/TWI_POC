@@ -46,6 +46,7 @@ class MongoDBSaver(BaseCheckpointSaver):
         self._ttl_seconds = (
             ttl_seconds if ttl_seconds is not None else self.DEFAULT_TTL_SECONDS
         )
+        self._indexes_ensured = False
 
     async def ensure_indexes(self) -> None:
         """Create required indexes (idempotent).
@@ -161,7 +162,18 @@ class MongoDBSaver(BaseCheckpointSaver):
         metadata: CheckpointMetadata,
         new_versions: Optional[dict[str, Any]] = None,
     ) -> RunnableConfig:
-        """Persist a checkpoint."""
+        """Persist a checkpoint.
+
+        On the first call, this also ensures required indexes exist
+        (TTL + compound unique) via :meth:`ensure_indexes`.
+        """
+        if not self._indexes_ensured:
+            try:
+                await self.ensure_indexes()
+                self._indexes_ensured = True
+            except Exception as exc:  # noqa: BLE001
+                logger.warning("Index creation failed (non-fatal): %s", exc)
+
         thread_id = config["configurable"]["thread_id"]
         checkpoint_id = checkpoint["id"]
 
