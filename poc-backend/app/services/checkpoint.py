@@ -32,10 +32,42 @@ class MongoDBSaver(BaseCheckpointSaver):
         - created_at
     """
 
-    def __init__(self, collection_name: str = "agent_state") -> None:
+    #: Default TTL for checkpoint documents (30 days).
+    DEFAULT_TTL_SECONDS: int = 30 * 24 * 60 * 60
+
+    def __init__(
+        self,
+        collection_name: str = "agent_state",
+        ttl_seconds: int | None = None,
+    ) -> None:
         super().__init__()
         db = _get_db()
         self.collection = db[collection_name]
+        self._ttl_seconds = (
+            ttl_seconds if ttl_seconds is not None else self.DEFAULT_TTL_SECONDS
+        )
+
+    async def ensure_indexes(self) -> None:
+        """Create required indexes (idempotent).
+
+        * Compound unique index on ``(thread_id, checkpoint_id)`` for fast
+          point lookups and upserts.
+        * TTL index on ``created_at`` so that old checkpoints are
+          automatically removed by the database after ``_ttl_seconds``.
+        """
+        await self.collection.create_index(
+            [("thread_id", 1), ("checkpoint_id", 1)],
+            unique=True,
+            name="ix_thread_checkpoint",
+        )
+        await self.collection.create_index(
+            "created_at",
+            expireAfterSeconds=self._ttl_seconds,
+            name="ix_ttl_created_at",
+        )
+        logger.info(
+            "Checkpoint indexes ensured (TTL=%d s).", self._ttl_seconds
+        )
 
     # ------------------------------------------------------------------
     # Read
