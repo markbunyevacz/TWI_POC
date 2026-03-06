@@ -1,5 +1,9 @@
+import logging
+
 from app.agent.state import AgentState
 from app.services.ai_foundry import call_llm
+
+logger = logging.getLogger(__name__)
 
 _INTENT_PROMPT = """Te az agentize.eu AI platform intent felismerő modulja vagy.
 Osztályozd a felhasználó kérését az alábbi kategóriák egyikébe:
@@ -18,14 +22,18 @@ _VALID_INTENTS = {"generate_twi", "edit_twi", "question", "unknown"}
 
 async def intent_node(state: AgentState) -> AgentState:
     """Classify user intent using LLM (temperature=0.1 for deterministic output)."""
-    response, tokens = await call_llm(
-        prompt=_INTENT_PROMPT.format(message=state["message"]),
-        temperature=0.1,
-        max_tokens=20,
-    )
-    intent = response.strip().lower()
-    if intent not in _VALID_INTENTS:
-        intent = "unknown"
+    try:
+        response, tokens = await call_llm(
+            prompt=_INTENT_PROMPT.format(message=state["message"]),
+            temperature=0.1,
+            max_tokens=20,
+        )
+        intent = response.strip().lower()
+        if intent not in _VALID_INTENTS:
+            intent = "unknown"
 
-    current_tokens = state.get("llm_tokens_used") or 0
-    return {**state, "intent": intent, "llm_tokens_used": current_tokens + tokens}
+        current_tokens = state.get("llm_tokens_used") or 0
+        return {**state, "intent": intent, "llm_tokens_used": current_tokens + tokens}
+    except Exception as exc:
+        logger.error("Intent classification failed: %s", exc, exc_info=True)
+        return {**state, "intent": "unknown", "status": "error"}
