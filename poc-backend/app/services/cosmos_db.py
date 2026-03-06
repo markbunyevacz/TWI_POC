@@ -12,10 +12,24 @@ _db: AsyncIOMotorDatabase | None = None
 
 
 def _get_db() -> AsyncIOMotorDatabase:
+    """Return a singleton Motor database handle.
+
+    Raises:
+        RuntimeError: If ``cosmos_connection`` is not configured.
+    """
     global _client, _db
     if _db is None:
-        _client = AsyncIOMotorClient(settings.cosmos_connection)
-        _db = _client[settings.cosmos_database]
+        if not settings.cosmos_connection:
+            raise RuntimeError(
+                "COSMOS_CONNECTION is not configured. "
+                "Set the cosmos_connection setting or the COSMOS_CONNECTION env var."
+            )
+        try:
+            _client = AsyncIOMotorClient(settings.cosmos_connection)
+            _db = _client[settings.cosmos_database]
+        except Exception as exc:
+            logger.error("Failed to connect to Cosmos DB: %s", exc)
+            raise
     return _db
 
 
@@ -28,7 +42,7 @@ class ConversationStore:
         conversation_id: str,
         user_id: str,
         channel: str,
-        tenant_id: str = "poc-tenant",
+        tenant_id: str = "",
     ) -> dict:
         doc = await self.collection.find_one({"conversation_id": conversation_id})
         if doc:

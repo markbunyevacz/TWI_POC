@@ -3,6 +3,10 @@
 _SCHEMA = "http://adaptivecards.io/schemas/adaptive-card.json"
 _VERSION = "1.4"
 
+# Teams Adaptive Card payload limit is ~28 KB; we truncate draft text
+# conservatively to avoid oversized payloads.
+_DRAFT_DISPLAY_MAX_CHARS = 2000
+
 
 def create_review_card(draft: str, metadata: dict) -> dict:
     """Human-in-the-loop #1 — draft review card with approve / edit / reject actions."""
@@ -33,7 +37,7 @@ def create_review_card(draft: str, metadata: dict) -> dict:
             {"type": "TextBlock", "text": "---", "separator": True},
             {
                 "type": "TextBlock",
-                "text": draft[:2000],  # Adaptive Card payload limit
+                "text": draft[:_DRAFT_DISPLAY_MAX_CHARS],
                 "wrap": True,
                 "fontType": "default",
             },
@@ -107,7 +111,7 @@ def create_approval_card(draft: str, metadata: dict) -> dict:
             },
             {
                 "type": "TextBlock",
-                "text": draft[:2000],
+                "text": draft[:_DRAFT_DISPLAY_MAX_CHARS],
                 "wrap": True,
             },
         ],
@@ -120,7 +124,6 @@ def create_approval_card(draft: str, metadata: dict) -> dict:
                     "action": "final_approve",
                     "draft": draft,
                     "metadata": metadata,
-                    "timestamp": "__CURRENT_TIMESTAMP__",
                 },
             },
             {

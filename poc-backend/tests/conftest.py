@@ -1,7 +1,6 @@
 """Shared pytest fixtures and async test configuration."""
 
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
 
 
 @pytest.fixture

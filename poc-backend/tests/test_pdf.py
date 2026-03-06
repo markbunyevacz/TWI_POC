@@ -3,7 +3,7 @@
 import pytest
 from unittest.mock import patch, MagicMock
 
-from app.agent.tools.pdf_generator import _extract_title, generate_twi_pdf
+from app.agent.tools.pdf_generator import extract_title, generate_twi_pdf
 
 
 _SAMPLE_CONTENT = (
@@ -48,27 +48,27 @@ def _mock_html(html_string: str, collector: list | None = None):
 class TestExtractTitle:
     def test_extracts_first_non_warning_line(self):
         content = "⚠️ AI label\n\n## CÍM: My Title\nrest"
-        assert _extract_title(content) == "CÍM: My Title"
+        assert extract_title(content) == "CÍM: My Title"
 
     def test_skips_ai_warning_line(self):
         content = (
             "⚠️ AI által generált tartalom — emberi felülvizsgálat szükséges.\n\n"
             "Real Title"
         )
-        assert _extract_title(content) == "Real Title"
+        assert extract_title(content) == "Real Title"
 
     def test_falls_back_to_default_when_no_title(self):
         content = "⚠️ AI által generált tartalom — emberi felülvizsgálat szükséges.\n\n"
-        assert _extract_title(content) == "TWI Munkautasítás"
+        assert extract_title(content) == "TWI Munkautasítás"
 
     def test_truncates_long_title_to_100_chars(self):
-        assert len(_extract_title("A" * 200)) <= 100
+        assert len(extract_title("A" * 200)) <= 100
 
     def test_strips_markdown_heading_prefix(self):
-        assert _extract_title("## My Heading") == "My Heading"
+        assert extract_title("## My Heading") == "My Heading"
 
     def test_empty_content_returns_default(self):
-        assert _extract_title("") == "TWI Munkautasítás"
+        assert extract_title("") == "TWI Munkautasítás"
 
 
 # ---------------------------------------------------------------------------

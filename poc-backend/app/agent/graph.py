@@ -4,6 +4,7 @@ from langgraph.graph import StateGraph, END
 from langgraph.checkpoint.memory import MemorySaver
 
 from app.agent.state import AgentState
+from app.config import settings
 from app.agent.nodes.intent import intent_node
 from app.agent.nodes.process_input import process_input_node
 from app.agent.nodes.generate import generate_node
@@ -15,7 +16,7 @@ from app.agent.nodes.audit import audit_node
 
 logger = logging.getLogger(__name__)
 
-# Singleton compiled graph (PoC: in-memory checkpointer)
+# Singleton compiled graph
 _graph = None
 
 
@@ -59,7 +60,7 @@ def create_agent_graph():
     """Build and compile the LangGraph agent graph."""
     builder = StateGraph(AgentState)
 
-    builder.add_node("intent", intent_node)
+    builder.add_node("classify_intent", intent_node)
     builder.add_node("process_input", process_input_node)
     builder.add_node("generate", generate_node)
     builder.add_node("review", review_node)
@@ -69,9 +70,9 @@ def create_agent_graph():
     builder.add_node("audit", audit_node)
     builder.add_node("clarify", clarify_node)
 
-    builder.set_entry_point("intent")
+    builder.set_entry_point("classify_intent")
     builder.add_conditional_edges(
-        "intent",
+        "classify_intent",
         should_generate,
         {
             "process_input": "process_input",
@@ -106,11 +107,31 @@ def create_agent_graph():
     builder.add_edge("audit", END)
     builder.add_edge("clarify", END)
 
-    checkpointer = MemorySaver()
+    checkpointer = _create_checkpointer()
     return builder.compile(
         checkpointer=checkpointer,
         interrupt_before=["review", "approve"],
     )
+
+
+def _create_checkpointer():
+    """Create the appropriate checkpointer based on configuration.
+
+    Uses Cosmos DB-backed MongoDBSaver when a connection string is configured,
+    otherwise falls back to in-memory MemorySaver for local development.
+    """
+    if settings.cosmos_connection:
+        try:
+            from app.services.checkpoint import MongoDBSaver
+            logger.info("Using Cosmos DB checkpointer (MongoDBSaver).")
+            return MongoDBSaver()
+        except Exception as exc:
+            logger.warning(
+                "Failed to initialise MongoDBSaver, falling back to MemorySaver: %s",
+                exc,
+            )
+    logger.info("Using in-memory MemorySaver (state lost on restart).")
+    return MemorySaver()
 
 
 def get_graph():
@@ -136,7 +157,11 @@ async def run_agent(
 
     if resume_from:
         state_update = _build_resume_state(resume_from, context or {})
-        result = await graph.ainvoke(state_update, config)
+        # Update the existing checkpoint state, then resume from it.
+        # Passing None to ainvoke tells LangGraph to continue from the
+        # last interrupt rather than starting a new run.
+        await graph.aupdate_state(config, state_update)
+        result = await graph.ainvoke(None, config)
     else:
         initial_state = AgentState(
             user_id=user_id,

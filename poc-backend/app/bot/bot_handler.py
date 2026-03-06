@@ -74,7 +74,7 @@ class AgentizeBotHandler(ActivityHandler):
         user_id: str,
         channel_id: str,
     ) -> None:
-        await turn_context.send_activity("⏳ Feldolgozom a kérésedet...")
+        await self._send_message(turn_context, "⏳ Feldolgozom a kérésedet...", channel_id)
 
         try:
             result = await run_agent(
@@ -84,9 +84,21 @@ class AgentizeBotHandler(ActivityHandler):
                 conversation_id=conversation_id,
                 channel=channel_id,
             )
-        except Exception as exc:  # noqa: BLE001
+        except (ValueError, KeyError, RuntimeError) as exc:
             logger.error("Agent error: %s", exc, exc_info=True)
-            await turn_context.send_activity(f"❌ Hiba: {exc}")
+            await self._send_message(
+                turn_context,
+                "❌ Hiba történt a feldolgozás során. Kérlek próbáld újra.",
+                channel_id,
+            )
+            return
+        except Exception as exc:  # noqa: BLE001
+            logger.error("Unexpected agent error: %s", exc, exc_info=True)
+            await self._send_message(
+                turn_context,
+                "❌ Váratlan hiba történt. Kérlek próbáld újra később.",
+                channel_id,
+            )
             return
 
         status = result.get("status", "")
@@ -96,21 +108,26 @@ class AgentizeBotHandler(ActivityHandler):
                 draft=result.get("draft", ""),
                 metadata=result.get("draft_metadata", {}),
             )
-            await self._send_card(turn_context, card)
+            await self._send_card(turn_context, card, channel_id)
 
         elif status == "clarification_needed":
             clarify_msg = (
                 "Kérlek pontosítsd a kérésedet. Például: "
                 '"Készíts egy TWI utasítást a CNC-01 gép napi karbantartásáról."'
             )
-            await turn_context.send_activity(clarify_msg)
+            await self._send_message(turn_context, clarify_msg, channel_id)
 
         elif status == "error":
-            msg = result.get("message", "Ismeretlen hiba")
-            await turn_context.send_activity(f"❌ Hiba: {msg}")
+            await self._send_message(
+                turn_context,
+                "❌ Hiba történt a feldolgozás során. Kérlek próbáld újra.",
+                channel_id,
+            )
 
         else:
-            await turn_context.send_activity(f"Állapot: {status}")
+            await self._send_message(
+                turn_context, f"Állapot: {status}", channel_id
+            )
 
     # ------------------------------------------------------------------
     # Adaptive Card action → LangGraph resume
@@ -125,19 +142,23 @@ class AgentizeBotHandler(ActivityHandler):
     ) -> None:
         action = value.get("action")
 
+        channel_id = turn_context.activity.channel_id
+
         if action == "approve_draft":
             # Review #1 approved → send Final Approval card (no graph resume yet)
             card = create_approval_card(
                 draft=value.get("draft", ""),
                 metadata=value.get("metadata", {}),
             )
-            await self._send_card(turn_context, card)
+            await self._send_card(turn_context, card, channel_id)
 
         elif action == "request_edit":
             # Revision requested → resume graph with revision feedback
             feedback = value.get("feedback", "")
-            await turn_context.send_activity(
-                "⏳ Módosítom a szerkesztési kérésed alapján..."
+            await self._send_message(
+                turn_context,
+                "⏳ Módosítom a szerkesztési kérésed alapján...",
+                channel_id,
             )
 
             try:
@@ -149,20 +170,34 @@ class AgentizeBotHandler(ActivityHandler):
                     resume_from="revision",
                     context={"feedback": feedback},
                 )
-            except Exception as exc:  # noqa: BLE001
+            except (ValueError, KeyError, RuntimeError) as exc:
                 logger.error("Agent revision error: %s", exc, exc_info=True)
-                await turn_context.send_activity(f"❌ Hiba a szerkesztés során: {exc}")
+                await self._send_message(
+                    turn_context,
+                    "❌ Hiba a szerkesztés során. Kérlek próbáld újra.",
+                    channel_id,
+                )
+                return
+            except Exception as exc:  # noqa: BLE001
+                logger.error("Unexpected agent revision error: %s", exc, exc_info=True)
+                await self._send_message(
+                    turn_context,
+                    "❌ Váratlan hiba történt. Kérlek próbáld újra később.",
+                    channel_id,
+                )
                 return
 
             card = create_review_card(
                 draft=result.get("draft", ""),
                 metadata=result.get("draft_metadata", {}),
             )
-            await self._send_card(turn_context, card)
+            await self._send_card(turn_context, card, channel_id)
 
         elif action == "final_approve":
             # Final approval → resume graph → PDF generation
-            await turn_context.send_activity("⏳ PDF generálás folyamatban...")
+            await self._send_message(
+                turn_context, "⏳ PDF generálás folyamatban...", channel_id
+            )
             timestamp = datetime.now(timezone.utc).isoformat()
 
             try:
@@ -174,9 +209,21 @@ class AgentizeBotHandler(ActivityHandler):
                     resume_from="output",
                     context={"timestamp": timestamp},
                 )
-            except Exception as exc:  # noqa: BLE001
+            except (ValueError, KeyError, RuntimeError) as exc:
                 logger.error("Agent output error: %s", exc, exc_info=True)
-                await turn_context.send_activity(f"❌ PDF generálás sikertelen: {exc}")
+                await self._send_message(
+                    turn_context,
+                    "❌ PDF generálás sikertelen. Kérlek próbáld újra.",
+                    channel_id,
+                )
+                return
+            except Exception as exc:  # noqa: BLE001
+                logger.error("Unexpected agent output error: %s", exc, exc_info=True)
+                await self._send_message(
+                    turn_context,
+                    "❌ Váratlan hiba történt. Kérlek próbáld újra később.",
+                    channel_id,
+                )
                 return
 
             # Enrich metadata with approver info for the result card
@@ -188,11 +235,13 @@ class AgentizeBotHandler(ActivityHandler):
                 document_title=result.get("title", "TWI Munkautasítás"),
                 metadata=metadata,
             )
-            await self._send_card(turn_context, card)
+            await self._send_card(turn_context, card, channel_id)
 
         elif action == "reject":
-            await turn_context.send_activity(
-                "🗑️ Elvettem a vázlatot. Új kéréssel indíthatsz újat."
+            await self._send_message(
+                turn_context,
+                "🗑️ Elvettem a vázlatot. Új kéréssel indíthatsz újat.",
+                channel_id,
             )
 
         else:
@@ -203,10 +252,49 @@ class AgentizeBotHandler(ActivityHandler):
     # ------------------------------------------------------------------
 
     @staticmethod
-    async def _send_card(turn_context: TurnContext, card: dict) -> None:
-        await turn_context.send_activity(
-            Activity(
-                type=ActivityTypes.message,
-                attachments=[CardFactory.adaptive_card(card)],
+    def _is_telegram(channel_id: str) -> bool:
+        """Check if the current channel is Telegram."""
+        return channel_id == "telegram"
+
+    @staticmethod
+    async def _send_message(
+        turn_context: TurnContext, text: str, channel_id: str = ""
+    ) -> None:
+        """Send a plain text message.  Works on all channels."""
+        await turn_context.send_activity(text)
+
+    @staticmethod
+    async def _send_card(
+        turn_context: TurnContext, card: dict, channel_id: str = ""
+    ) -> None:
+        """Send an Adaptive Card, with a Telegram plain-text fallback.
+
+        Telegram does not support Adaptive Cards, so we extract the
+        text blocks and send them as a Markdown-formatted message.
+        """
+        if channel_id == "telegram":
+            # Telegram fallback: extract readable text from the card body
+            lines: list[str] = []
+            for block in card.get("body", []):
+                text = block.get("text", "")
+                if text and text != "---":
+                    lines.append(text)
+                # FactSet support (used in result card)
+                for fact in block.get("facts", []):
+                    lines.append(f"{fact.get('title', '')} {fact.get('value', '')}")
+            # Append action labels / URLs
+            for action in card.get("actions", []):
+                title = action.get("title", "")
+                url = action.get("url")
+                if url:
+                    lines.append(f"{title}: {url}")
+                elif title:
+                    lines.append(f"[{title}]")
+            await turn_context.send_activity("\n".join(lines))
+        else:
+            await turn_context.send_activity(
+                Activity(
+                    type=ActivityTypes.message,
+                    attachments=[CardFactory.adaptive_card(card)],
+                )
             )
-        )

@@ -22,6 +22,9 @@
     "color": "color.png"
   },
   "accentColor": "#1B4F72",
+  "localizationInfo": {
+    "defaultLanguageTag": "hu"
+  },
   "bots": [
     {
       "botId": "{{BOT_APP_ID}}",
@@ -45,5 +48,14 @@
     }
   ],
   "permissions": ["identity", "messageTeamMembers"],
-  "validDomains": ["{{BACKEND_FQDN}}"]
+  "validDomains": ["{{BACKEND_FQDN}}"],
+  "webApplicationInfo": {
+    "id": "{{BOT_APP_ID}}",
+    "resource": "api://{{BACKEND_FQDN}}/{{BOT_APP_ID}}"
+  },
+  "defaultInstallScope": "personal",
+  "defaultGroupCapability": {
+    "team": "bot",
+    "groupChat": "bot"
+  }
 }
