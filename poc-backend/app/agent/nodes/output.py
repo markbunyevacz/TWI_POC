@@ -3,7 +3,7 @@ import logging
 from datetime import datetime, timezone
 
 from app.agent.state import AgentState
-from app.agent.tools.pdf_generator import generate_twi_pdf, _extract_title
+from app.agent.tools.pdf_generator import generate_twi_pdf, extract_title
 from app.services.blob_storage import upload_pdf
 from app.services.cosmos_db import DocumentStore
 
@@ -23,7 +23,7 @@ async def output_node(state: AgentState) -> AgentState:
     pdf_url = await upload_pdf(pdf_bytes, blob_name)
     logger.info("PDF generated and uploaded: blob_name=%s", blob_name)
 
-    title = _extract_title(state["draft"])
+    title = extract_title(state["draft"])
 
     doc_store = DocumentStore()
     await doc_store.save({

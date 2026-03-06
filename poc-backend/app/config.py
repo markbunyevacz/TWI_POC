@@ -17,6 +17,9 @@ class Settings(BaseSettings):
     blob_connection: str = ""
     blob_container: str = "pdf-output"
 
+    # Key Vault (optional — secrets are typically injected via Container App env refs)
+    key_vault_url: str = ""
+
     # Bot Framework
     bot_app_id: str = ""
     bot_app_password: str = ""

@@ -3,7 +3,7 @@ import logging
 from fastapi import FastAPI, Request, Response
 from botbuilder.core import BotFrameworkAdapter, BotFrameworkAdapterSettings
 from botbuilder.schema import Activity
-from botframework.connector.auth import JwtTokenValidation, SimpleCredentialProvider
+from botbuilder.connector.auth import JwtTokenValidation, SimpleCredentialProvider
 
 from app.config import settings
 from app.bot.bot_handler import AgentizeBotHandler
