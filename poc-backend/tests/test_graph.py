@@ -107,8 +107,9 @@ class TestBuildResumeState:
         assert result["status"] == "approved"
         assert result["approval_timestamp"] == "2026-02-26T10:00:00Z"
 
-    def test_unknown_resume_returns_empty(self):
-        assert _build_resume_state("unknown", {}) == {}
+    def test_unknown_resume_raises_value_error(self):
+        with pytest.raises(ValueError, match="Unknown resume_from"):
+            _build_resume_state("unknown", {})
 
     def test_revision_missing_feedback_defaults_to_empty_string(self):
         result = _build_resume_state("revision", {})
