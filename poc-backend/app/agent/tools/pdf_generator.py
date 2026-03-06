@@ -17,7 +17,7 @@ def _now_iso() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
 
 
-def _extract_title(content: str) -> str:
+def extract_title(content: str) -> str:
     """Extract the first meaningful line from the TWI draft as the document title."""
     for line in content.split("\n"):
         clean = line.strip().lstrip("#").strip()
@@ -53,7 +53,7 @@ async def generate_twi_pdf(
 
     template = _template_env.get_template("twi_template.html")
     html_content = template.render(
-        title=_extract_title(content),
+        title=extract_title(content),
         generated_at=metadata.get("generated_at", "N/A"),
         model=metadata.get("model", "N/A"),
         revision=metadata.get("revision", 0),

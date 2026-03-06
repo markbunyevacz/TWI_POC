@@ -15,8 +15,30 @@ from app.agent.nodes.audit import audit_node
 
 logger = logging.getLogger(__name__)
 
-# Singleton compiled graph (PoC: in-memory checkpointer)
+# Singleton compiled graph
 _graph = None
+_checkpointer = None
+
+
+async def _get_checkpointer():
+    """Get or create the checkpointer - MongoDB if available, else Memory."""
+    global _checkpointer
+    if _checkpointer is None:
+        # Try to use MongoDB checkpointer for persistence
+        try:
+            from app.agent.mongodb_checkpointer import create_mongodb_checkpointer
+            # Check if Cosmos connection is configured
+            from app.config import settings
+            if settings.cosmos_connection:
+                _checkpointer = await create_mongodb_checkpointer()
+                logger.info("Using MongoDB checkpointer for persistent state")
+            else:
+                logger.warning("Cosmos DB not configured - using in-memory checkpointer")
+                _checkpointer = MemorySaver()
+        except Exception as exc:
+            logger.warning(f"Failed to initialize MongoDB checkpointer: {exc}. Using MemorySaver.")
+            _checkpointer = MemorySaver()
+    return _checkpointer
 
 
 def should_generate(state: AgentState) -> str:
@@ -106,18 +128,18 @@ def create_agent_graph():
     builder.add_edge("audit", END)
     builder.add_edge("clarify", END)
 
-    checkpointer = MemorySaver()
+    checkpointer = await _get_checkpointer()
     return builder.compile(
         checkpointer=checkpointer,
         interrupt_before=["review", "approve"],
     )
 
 
-def get_graph():
+async def get_graph():
     """Return the singleton compiled graph."""
     global _graph
     if _graph is None:
-        _graph = create_agent_graph()
+        _graph = await create_agent_graph()
     return _graph
 
 
@@ -136,7 +158,10 @@ async def run_agent(
 
     if resume_from:
         state_update = _build_resume_state(resume_from, context or {})
-        result = await graph.ainvoke(state_update, config)
+        # First update the state with the resume context
+        graph.update_state(config, state_update)
+        # Then resume from the interrupt by passing None (continues from last checkpoint)
+        result = await graph.ainvoke(None, config)
     else:
         initial_state = AgentState(
             user_id=user_id,
