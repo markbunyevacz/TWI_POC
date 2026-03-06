@@ -74,6 +74,30 @@ class AgentizeBotHandler(ActivityHandler):
         user_id: str,
         channel_id: str,
     ) -> None:
+        # Guard: if the graph already has a paused thread for this conversation,
+        # warn the user instead of orphaning the existing run.
+        try:
+            existing = await self.graph.aget_state(
+                {"configurable": {"thread_id": conversation_id}}
+            )
+            if existing and existing.next:
+                logger.info(
+                    "Graph already paused at %s for conversation=%s — prompting user.",
+                    existing.next,
+                    conversation_id,
+                )
+                await self._send_message(
+                    turn_context,
+                    "⚠️ Már van egy folyamatban lévő kérésed. "
+                    "Kérlek használd a kártyán lévő gombokat a folytatáshoz, "
+                    "vagy utasítsd el a jelenlegi vázlatot, mielőtt újat kezdesz.",
+                    channel_id,
+                )
+                return
+        except Exception:
+            # If state lookup fails (e.g. no checkpointer), proceed normally.
+            pass
+
         await self._send_message(turn_context, "⏳ Feldolgozom a kérésedet...", channel_id)
 
         try:
