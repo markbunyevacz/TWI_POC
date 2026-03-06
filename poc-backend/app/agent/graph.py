@@ -193,7 +193,11 @@ async def run_agent(
 
 
 def _build_resume_state(resume_from: str, context: dict) -> dict:
-    """Build the state patch to resume after a human-in-the-loop interrupt."""
+    """Build the state patch to resume after a human-in-the-loop interrupt.
+
+    Raises:
+        ValueError: If ``resume_from`` is not a recognised resume point.
+    """
     if resume_from == "revision":
         return {
             "status": "revision_requested",
@@ -204,4 +208,7 @@ def _build_resume_state(resume_from: str, context: dict) -> dict:
             "status": "approved",
             "approval_timestamp": context.get("timestamp"),
         }
-    return {}
+    raise ValueError(
+        f"Unknown resume_from value: {resume_from!r}. "
+        "Expected 'revision' or 'output'."
+    )

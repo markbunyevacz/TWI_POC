@@ -1,8 +1,11 @@
+import logging
 from datetime import datetime, timezone
 
 from app.agent.state import AgentState
 from app.services.ai_foundry import call_llm
 from app.config import settings
+
+logger = logging.getLogger(__name__)
 
 _TWI_SYSTEM_PROMPT = (  # noqa: E501
     "Te az agentize.eu TWI (Training Within Industry) generátor modulja vagy.\n\n"
@@ -43,38 +46,42 @@ def _now_iso() -> str:
 
 async def generate_node(state: AgentState) -> AgentState:
     """Generate (or revise) a TWI document draft via LLM."""
-    revision_context = ""
-    if state.get("revision_feedback"):
-        revision_context = (
-            f"\nKORABBI VÁZLAT:\n{state.get('draft', '')}"
-            f"\n\nFELHASZNÁLÓI VISSZAJELZÉS:\n{state['revision_feedback']}"
-            f"\n\nMódosítsd a vázlatot a visszajelzés alapján."
+    try:
+        revision_context = ""
+        if state.get("revision_feedback"):
+            revision_context = (
+                f"\nKORABBI VÁZLAT:\n{state.get('draft', '')}"
+                f"\n\nFELHASZNÁLÓI VISSZAJELZÉS:\n{state['revision_feedback']}"
+                f"\n\nMódosítsd a vázlatot a visszajelzés alapján."
+            )
+
+        response, tokens = await call_llm(
+            system_prompt=_TWI_SYSTEM_PROMPT,
+            prompt=_TWI_GENERATE_PROMPT.format(
+                message=state["message"],
+                revision_context=revision_context,
+            ),
+            temperature=0.3,
+            max_tokens=4000,
         )
 
-    response, tokens = await call_llm(
-        system_prompt=_TWI_SYSTEM_PROMPT,
-        prompt=_TWI_GENERATE_PROMPT.format(
-            message=state["message"],
-            revision_context=revision_context,
-        ),
-        temperature=0.3,
-        max_tokens=4000,
-    )
+        # EU AI Act mandatory label on every AI-generated output
+        draft = f"{_EU_AI_ACT_LABEL}\n\n{response}"
 
-    # EU AI Act mandatory label on every AI-generated output
-    draft = f"{_EU_AI_ACT_LABEL}\n\n{response}"
+        current_tokens = state.get("llm_tokens_used") or 0
 
-    current_tokens = state.get("llm_tokens_used") or 0
-
-    return {
-        **state,
-        "draft": draft,
-        "draft_metadata": {
-            "model": settings.ai_model,
-            "generated_at": _now_iso(),
-            "revision": state.get("revision_count", 0),
-        },
-        "llm_model": settings.ai_model,
-        "llm_tokens_used": current_tokens + tokens,
-        "status": "review_needed",
-    }
+        return {
+            **state,
+            "draft": draft,
+            "draft_metadata": {
+                "model": settings.ai_model,
+                "generated_at": _now_iso(),
+                "revision": state.get("revision_count", 0),
+            },
+            "llm_model": settings.ai_model,
+            "llm_tokens_used": current_tokens + tokens,
+            "status": "review_needed",
+        }
+    except Exception as exc:
+        logger.error("TWI generation failed: %s", exc, exc_info=True)
+        return {**state, "status": "error"}

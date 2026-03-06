@@ -30,14 +30,24 @@ def _make_turn_context(
 # ---------------------------------------------------------------------------
 
 
+def _make_handler_with_no_paused_state():
+    """Create a handler whose graph.aget_state returns no paused state."""
+    with patch.object(AgentizeBotHandler, "__init__", lambda self: None):
+        handler = AgentizeBotHandler()
+        handler.graph = MagicMock()
+        # aget_state returns a snapshot with no pending interrupts
+        mock_state = MagicMock()
+        mock_state.next = ()  # empty = no paused interrupt
+        handler.graph.aget_state = AsyncMock(return_value=mock_state)
+        handler.conversation_store = MagicMock()
+        handler.conversation_store.get_or_create = AsyncMock()
+    return handler
+
+
 class TestHandleTextMessage:
     @pytest.mark.asyncio
     async def test_sends_processing_indicator(self):
-        with patch.object(AgentizeBotHandler, "__init__", lambda self: None):
-            handler = AgentizeBotHandler()
-            handler.graph = MagicMock()
-            handler.conversation_store = MagicMock()
-            handler.conversation_store.get_or_create = AsyncMock()
+        handler = _make_handler_with_no_paused_state()
 
         ctx = _make_turn_context(text="Készíts TWI utasítást")
 
@@ -53,11 +63,7 @@ class TestHandleTextMessage:
 
     @pytest.mark.asyncio
     async def test_review_needed_sends_card(self):
-        with patch.object(AgentizeBotHandler, "__init__", lambda self: None):
-            handler = AgentizeBotHandler()
-            handler.graph = MagicMock()
-            handler.conversation_store = MagicMock()
-            handler.conversation_store.get_or_create = AsyncMock()
+        handler = _make_handler_with_no_paused_state()
 
         ctx = _make_turn_context(text="Készíts TWI utasítást")
 
@@ -76,11 +82,7 @@ class TestHandleTextMessage:
 
     @pytest.mark.asyncio
     async def test_clarification_needed_sends_text(self):
-        with patch.object(AgentizeBotHandler, "__init__", lambda self: None):
-            handler = AgentizeBotHandler()
-            handler.graph = MagicMock()
-            handler.conversation_store = MagicMock()
-            handler.conversation_store.get_or_create = AsyncMock()
+        handler = _make_handler_with_no_paused_state()
 
         ctx = _make_turn_context(text="hello")
 
@@ -96,11 +98,7 @@ class TestHandleTextMessage:
 
     @pytest.mark.asyncio
     async def test_agent_error_shows_safe_message(self):
-        with patch.object(AgentizeBotHandler, "__init__", lambda self: None):
-            handler = AgentizeBotHandler()
-            handler.graph = MagicMock()
-            handler.conversation_store = MagicMock()
-            handler.conversation_store.get_or_create = AsyncMock()
+        handler = _make_handler_with_no_paused_state()
 
         ctx = _make_turn_context(text="test")
 
@@ -115,20 +113,82 @@ class TestHandleTextMessage:
         assert not any("internal details" in c for c in calls)
         assert any("Hiba" in c for c in calls)
 
+    @pytest.mark.asyncio
+    async def test_unexpected_exception_shows_safe_message(self):
+        """Blanket Exception catch returns a generic Hungarian error message."""
+        handler = _make_handler_with_no_paused_state()
+
+        ctx = _make_turn_context(text="test")
+
+        with patch(
+            "app.bot.bot_handler.run_agent",
+            new=AsyncMock(side_effect=Exception("segfault-like crash")),
+        ):
+            await handler.on_message_activity(ctx)
+
+        calls = [str(c) for c in ctx.send_activity.call_args_list]
+        assert not any("segfault" in c for c in calls)
+        assert any("Váratlan hiba" in c for c in calls)
+
+    @pytest.mark.asyncio
+    async def test_error_status_shows_error_message(self):
+        """When run_agent returns status='error', user gets an error message."""
+        handler = _make_handler_with_no_paused_state()
+
+        ctx = _make_turn_context(text="test")
+
+        with patch(
+            "app.bot.bot_handler.run_agent",
+            new=AsyncMock(return_value={"status": "error"}),
+        ):
+            await handler.on_message_activity(ctx)
+
+        calls = [str(c) for c in ctx.send_activity.call_args_list]
+        assert any("Hiba" in c for c in calls)
+
+    @pytest.mark.asyncio
+    async def test_concurrent_message_on_paused_graph_warns_user(self):
+        """If graph is paused at an interrupt, a new text message warns the user."""
+        with patch.object(AgentizeBotHandler, "__init__", lambda self: None):
+            handler = AgentizeBotHandler()
+            handler.graph = MagicMock()
+            # Simulate a paused graph (next is non-empty)
+            mock_state = MagicMock()
+            mock_state.next = ("review",)
+            handler.graph.aget_state = AsyncMock(return_value=mock_state)
+            handler.conversation_store = MagicMock()
+            handler.conversation_store.get_or_create = AsyncMock()
+
+        ctx = _make_turn_context(text="new message")
+
+        with patch("app.bot.bot_handler.run_agent", new=AsyncMock()) as mock_run:
+            await handler.on_message_activity(ctx)
+            # run_agent should NOT be called — user should be warned instead
+            mock_run.assert_not_called()
+
+        calls = [str(c) for c in ctx.send_activity.call_args_list]
+        assert any("folyamatban" in c for c in calls)
+
 
 # ---------------------------------------------------------------------------
 # Card action routing
 # ---------------------------------------------------------------------------
 
 
+def _make_handler_for_card_action():
+    """Create a handler for card action tests (no aget_state needed)."""
+    with patch.object(AgentizeBotHandler, "__init__", lambda self: None):
+        handler = AgentizeBotHandler()
+        handler.graph = MagicMock()
+        handler.conversation_store = MagicMock()
+        handler.conversation_store.get_or_create = AsyncMock()
+    return handler
+
+
 class TestHandleCardAction:
     @pytest.mark.asyncio
     async def test_approve_draft_sends_approval_card(self):
-        with patch.object(AgentizeBotHandler, "__init__", lambda self: None):
-            handler = AgentizeBotHandler()
-            handler.graph = MagicMock()
-            handler.conversation_store = MagicMock()
-            handler.conversation_store.get_or_create = AsyncMock()
+        handler = _make_handler_for_card_action()
 
         ctx = _make_turn_context(
             value={"action": "approve_draft", "draft": "test draft", "metadata": {}},
@@ -141,11 +201,7 @@ class TestHandleCardAction:
 
     @pytest.mark.asyncio
     async def test_reject_sends_rejection_message(self):
-        with patch.object(AgentizeBotHandler, "__init__", lambda self: None):
-            handler = AgentizeBotHandler()
-            handler.graph = MagicMock()
-            handler.conversation_store = MagicMock()
-            handler.conversation_store.get_or_create = AsyncMock()
+        handler = _make_handler_for_card_action()
 
         ctx = _make_turn_context(value={"action": "reject"})
 
@@ -156,11 +212,7 @@ class TestHandleCardAction:
 
     @pytest.mark.asyncio
     async def test_unknown_action_logged(self):
-        with patch.object(AgentizeBotHandler, "__init__", lambda self: None):
-            handler = AgentizeBotHandler()
-            handler.graph = MagicMock()
-            handler.conversation_store = MagicMock()
-            handler.conversation_store.get_or_create = AsyncMock()
+        handler = _make_handler_for_card_action()
 
         ctx = _make_turn_context(value={"action": "nonexistent"})
 
@@ -170,11 +222,7 @@ class TestHandleCardAction:
 
     @pytest.mark.asyncio
     async def test_request_edit_resumes_graph(self):
-        with patch.object(AgentizeBotHandler, "__init__", lambda self: None):
-            handler = AgentizeBotHandler()
-            handler.graph = MagicMock()
-            handler.conversation_store = MagicMock()
-            handler.conversation_store.get_or_create = AsyncMock()
+        handler = _make_handler_for_card_action()
 
         ctx = _make_turn_context(
             value={
@@ -201,11 +249,7 @@ class TestHandleCardAction:
 
     @pytest.mark.asyncio
     async def test_final_approve_resumes_graph(self):
-        with patch.object(AgentizeBotHandler, "__init__", lambda self: None):
-            handler = AgentizeBotHandler()
-            handler.graph = MagicMock()
-            handler.conversation_store = MagicMock()
-            handler.conversation_store.get_or_create = AsyncMock()
+        handler = _make_handler_for_card_action()
 
         ctx = _make_turn_context(
             value={"action": "final_approve", "draft": "final draft", "metadata": {}},
@@ -225,6 +269,118 @@ class TestHandleCardAction:
             mock_run.assert_called_once()
             call_kwargs = mock_run.call_args
             assert call_kwargs.kwargs.get("resume_from") == "output"
+
+    @pytest.mark.asyncio
+    async def test_request_edit_error_shows_safe_message(self):
+        """When run_agent raises during request_edit, user gets safe error."""
+        handler = _make_handler_for_card_action()
+
+        ctx = _make_turn_context(
+            value={"action": "request_edit", "feedback": "fix it"},
+        )
+
+        with patch(
+            "app.bot.bot_handler.run_agent",
+            new=AsyncMock(side_effect=RuntimeError("LLM timeout")),
+        ):
+            await handler.on_message_activity(ctx)
+
+        calls = [str(c) for c in ctx.send_activity.call_args_list]
+        assert not any("LLM timeout" in c for c in calls)
+        assert any("Hiba" in c for c in calls)
+
+    @pytest.mark.asyncio
+    async def test_request_edit_unexpected_error_shows_safe_message(self):
+        """Blanket Exception during request_edit returns generic error."""
+        handler = _make_handler_for_card_action()
+
+        ctx = _make_turn_context(
+            value={"action": "request_edit", "feedback": "fix it"},
+        )
+
+        with patch(
+            "app.bot.bot_handler.run_agent",
+            new=AsyncMock(side_effect=Exception("unknown crash")),
+        ):
+            await handler.on_message_activity(ctx)
+
+        calls = [str(c) for c in ctx.send_activity.call_args_list]
+        assert not any("unknown crash" in c for c in calls)
+        assert any("Váratlan hiba" in c for c in calls)
+
+    @pytest.mark.asyncio
+    async def test_final_approve_error_shows_safe_message(self):
+        """When run_agent raises during final_approve, user gets safe error."""
+        handler = _make_handler_for_card_action()
+
+        ctx = _make_turn_context(
+            value={"action": "final_approve", "draft": "d", "metadata": {}},
+        )
+
+        with patch(
+            "app.bot.bot_handler.run_agent",
+            new=AsyncMock(side_effect=RuntimeError("PDF gen failed")),
+        ):
+            await handler.on_message_activity(ctx)
+
+        calls = [str(c) for c in ctx.send_activity.call_args_list]
+        assert not any("PDF gen failed" in c for c in calls)
+        assert any("PDF generálás sikertelen" in c or "Hiba" in c for c in calls)
+
+    @pytest.mark.asyncio
+    async def test_final_approve_unexpected_error_shows_safe_message(self):
+        """Blanket Exception during final_approve returns generic error."""
+        handler = _make_handler_for_card_action()
+
+        ctx = _make_turn_context(
+            value={"action": "final_approve", "draft": "d", "metadata": {}},
+        )
+
+        with patch(
+            "app.bot.bot_handler.run_agent",
+            new=AsyncMock(side_effect=Exception("kaboom")),
+        ):
+            await handler.on_message_activity(ctx)
+
+        calls = [str(c) for c in ctx.send_activity.call_args_list]
+        assert not any("kaboom" in c for c in calls)
+        assert any("Váratlan hiba" in c for c in calls)
+
+    @pytest.mark.asyncio
+    async def test_request_edit_error_status_shows_error_message(self):
+        """When run_agent returns status='error' during request_edit, user gets error."""
+        handler = _make_handler_for_card_action()
+
+        ctx = _make_turn_context(
+            value={"action": "request_edit", "feedback": "fix it"},
+        )
+
+        with patch(
+            "app.bot.bot_handler.run_agent",
+            new=AsyncMock(return_value={"status": "error", "draft": ""}),
+        ):
+            await handler.on_message_activity(ctx)
+
+        calls = [str(c) for c in ctx.send_activity.call_args_list]
+        assert any("Hiba" in c for c in calls)
+
+    @pytest.mark.asyncio
+    async def test_final_approve_error_status_shows_error_message(self):
+        """When run_agent returns status='error' during final_approve, user gets error."""
+        handler = _make_handler_for_card_action()
+
+        ctx = _make_turn_context(
+            value={"action": "final_approve", "draft": "d", "metadata": {}},
+        )
+
+        with patch(
+            "app.bot.bot_handler.run_agent",
+            new=AsyncMock(return_value={"status": "error"}),
+        ):
+            await handler.on_message_activity(ctx)
+
+        calls = [str(c) for c in ctx.send_activity.call_args_list]
+        assert any("PDF generálás sikertelen" in c or "Hiba" in c for c in calls)
 
 
 # ---------------------------------------------------------------------------

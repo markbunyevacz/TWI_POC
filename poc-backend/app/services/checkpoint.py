@@ -32,10 +32,43 @@ class MongoDBSaver(BaseCheckpointSaver):
         - created_at
     """
 
-    def __init__(self, collection_name: str = "agent_state") -> None:
+    #: Default TTL for checkpoint documents (30 days).
+    DEFAULT_TTL_SECONDS: int = 30 * 24 * 60 * 60
+
+    def __init__(
+        self,
+        collection_name: str = "agent_state",
+        ttl_seconds: int | None = None,
+    ) -> None:
         super().__init__()
         db = _get_db()
         self.collection = db[collection_name]
+        self._ttl_seconds = (
+            ttl_seconds if ttl_seconds is not None else self.DEFAULT_TTL_SECONDS
+        )
+        self._indexes_ensured = False
+
+    async def ensure_indexes(self) -> None:
+        """Create required indexes (idempotent).
+
+        * Compound unique index on ``(thread_id, checkpoint_id)`` for fast
+          point lookups and upserts.
+        * TTL index on ``created_at`` so that old checkpoints are
+          automatically removed by the database after ``_ttl_seconds``.
+        """
+        await self.collection.create_index(
+            [("thread_id", 1), ("checkpoint_id", 1)],
+            unique=True,
+            name="ix_thread_checkpoint",
+        )
+        await self.collection.create_index(
+            "created_at",
+            expireAfterSeconds=self._ttl_seconds,
+            name="ix_ttl_created_at",
+        )
+        logger.info(
+            "Checkpoint indexes ensured (TTL=%d s).", self._ttl_seconds
+        )
 
     # ------------------------------------------------------------------
     # Read
@@ -55,6 +88,11 @@ class MongoDBSaver(BaseCheckpointSaver):
         metadata = doc.get("metadata", {})
         parent_config = doc.get("parent_config")
 
+        pending_writes = [
+            (pw["task_id"], pw["channel"], pw["value"])
+            for pw in doc.get("pending_writes", [])
+        ]
+
         return CheckpointTuple(
             config={
                 "configurable": {
@@ -65,6 +103,7 @@ class MongoDBSaver(BaseCheckpointSaver):
             checkpoint=checkpoint,
             metadata=metadata,
             parent_config=parent_config,
+            pending_writes=pending_writes,
         )
 
     async def alist(
@@ -92,6 +131,10 @@ class MongoDBSaver(BaseCheckpointSaver):
 
         results: list[CheckpointTuple] = []
         async for doc in cursor:
+            pending_writes = [
+                (pw["task_id"], pw["channel"], pw["value"])
+                for pw in doc.get("pending_writes", [])
+            ]
             results.append(
                 CheckpointTuple(
                     config={
@@ -103,6 +146,7 @@ class MongoDBSaver(BaseCheckpointSaver):
                     checkpoint=doc["checkpoint"],
                     metadata=doc.get("metadata", {}),
                     parent_config=doc.get("parent_config"),
+                    pending_writes=pending_writes,
                 )
             )
         return results
@@ -118,7 +162,18 @@ class MongoDBSaver(BaseCheckpointSaver):
         metadata: CheckpointMetadata,
         new_versions: Optional[dict[str, Any]] = None,
     ) -> RunnableConfig:
-        """Persist a checkpoint."""
+        """Persist a checkpoint.
+
+        On the first call, this also ensures required indexes exist
+        (TTL + compound unique) via :meth:`ensure_indexes`.
+        """
+        if not self._indexes_ensured:
+            try:
+                await self.ensure_indexes()
+                self._indexes_ensured = True
+            except Exception as exc:  # noqa: BLE001
+                logger.warning("Index creation failed (non-fatal): %s", exc)
+
         thread_id = config["configurable"]["thread_id"]
         checkpoint_id = checkpoint["id"]
 
