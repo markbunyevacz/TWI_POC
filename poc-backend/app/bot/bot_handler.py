@@ -295,6 +295,19 @@ class AgentizeBotHandler(ActivityHandler):
 
         Telegram does not support Adaptive Cards, so we extract the
         text blocks and send them as a Markdown-formatted message.
+
+        .. warning:: **Telegram interactive actions are NOT supported.**
+
+           The fallback only renders ``TextBlock``, ``FactSet``, and
+           ``Action.OpenUrl`` elements.  Interactive elements such as
+           ``Action.Submit`` (used for approve / edit / reject buttons)
+           and ``Input.Text`` (used for the revision feedback form) are
+           **silently dropped**.  This means a Telegram user can *view*
+           generated drafts and download PDFs via URL, but **cannot**
+           approve, reject, or request edits through the bot.
+
+           Full Telegram interactive support would require a dedicated
+           inline-keyboard adapter (not yet implemented).
         """
         if channel_id == "telegram":
             # Telegram fallback: extract readable text from the card body
