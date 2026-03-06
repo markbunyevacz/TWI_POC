@@ -78,8 +78,8 @@ class TestAfterReview:
 
 
 class TestAfterRevision:
-    def test_below_max_routes_to_review(self):
-        assert after_revision({"revision_count": 1}) == "review"
+    def test_below_max_routes_to_regenerate(self):
+        assert after_revision({"revision_count": 1}) == "regenerate"
 
     def test_at_max_routes_to_approve(self):
         assert after_revision({"revision_count": 3}) == "approve"
@@ -87,8 +87,8 @@ class TestAfterRevision:
     def test_above_max_routes_to_approve(self):
         assert after_revision({"revision_count": 5}) == "approve"
 
-    def test_zero_revisions_routes_to_review(self):
-        assert after_revision({"revision_count": 0}) == "review"
+    def test_zero_revisions_routes_to_regenerate(self):
+        assert after_revision({"revision_count": 0}) == "regenerate"
 
 
 # ---------------------------------------------------------------------------

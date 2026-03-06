@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git add poc-backend/app/agent/graph.py)",
+      "Bash(git commit:*)"
+    ]
+  }
+}
