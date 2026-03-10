@@ -27,6 +27,9 @@ class Settings(BaseSettings):
     # Telegram (optional)
     telegram_bot_token: str = ""
 
+    # Key Vault
+    key_vault_uri: str = ""
+
     # Application Insights
     applicationinsights_connection_string: str = ""
 
