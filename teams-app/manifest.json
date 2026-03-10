@@ -22,17 +22,33 @@
     "color": "color.png"
   },
   "accentColor": "#1B4F72",
-  "localizationInfo": {
-    "defaultLanguageTag": "hu"
+  "staticTabs": [
+    {
+      "entityId": "home",
+      "name": "Kezdőlap",
+      "contentUrl": "https://{{BACKEND_FQDN}}/static/tab.html",
+      "scopes": ["personal"]
+    }
+  ],
+  "configurableTabs": [
+    {
+      "configurationUrl": "https://{{BACKEND_FQDN}}/static/tab.html",
+      "canUpdateConfiguration": true,
+      "scopes": ["team", "groupChat"]
+    }
+  ],
+  "webApplicationInfo": {
+    "id": "{{BOT_APP_ID}}",
+    "resource": "api://{{BACKEND_FQDN}}/{{BOT_APP_ID}}"
   },
   "bots": [
     {
       "botId": "{{BOT_APP_ID}}",
       "scopes": ["personal", "team", "groupChat"],
-      "supportsFiles": false,
+      "supportsFiles": true,
       "commandLists": [
         {
-          "scopes": ["personal"],
+          "scopes": ["personal", "team", "groupChat"],
           "commands": [
             {
               "title": "Új TWI",
@@ -49,13 +65,18 @@
   ],
   "permissions": ["identity", "messageTeamMembers"],
   "validDomains": ["{{BACKEND_FQDN}}"],
-  "webApplicationInfo": {
-    "id": "{{BOT_APP_ID}}",
-    "resource": "api://{{BACKEND_FQDN}}/{{BOT_APP_ID}}"
-  },
   "defaultInstallScope": "personal",
   "defaultGroupCapability": {
     "team": "bot",
     "groupChat": "bot"
+  },
+  "localizationInfo": {
+    "defaultLanguage": "hu",
+    "additionalLanguages": [
+      {
+        "languageTag": "en",
+        "file": "strings-en.json"
+      }
+    ]
   }
 }

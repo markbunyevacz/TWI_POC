@@ -9,26 +9,15 @@ _LLM_RESPONSE = (
     "## LÉPÉSEK\n1. Kapcsold be a gépet\n"
 )
 
-_BASE_STATE = {
-    "user_id": "test-user",
-    "tenant_id": "poc-tenant",
-    "conversation_id": "conv-001",
-    "channel": "msteams",
-    "message": "Készíts TWI utasítást a CNC-01 gép beállításáról",
-    "intent": "generate_twi",
-    "processed_input": {"original_message": "Készíts TWI utasítást"},
-    "draft": None,
-    "draft_metadata": None,
-    "revision_feedback": None,
-    "revision_count": 0,
-    "status": "processing",
-    "pdf_url": None,
-    "pdf_blob_name": None,
-    "llm_model": None,
-    "llm_tokens_used": None,
-    "approval_timestamp": None,
-    "messages": [],
-}
+
+@pytest.fixture
+def base_state(sample_agent_state):
+    """Base state for generation tests - uses shared fixture."""
+    return {
+        **sample_agent_state,
+        "intent": "generate_twi",
+        "processed_input": {"original_message": sample_agent_state["message"]},
+    }
 
 
 class TestGenerateNode:
@@ -40,7 +29,7 @@ class TestGenerateNode:
         ):
             from app.agent.nodes.generate import generate_node
 
-            result = await generate_node({**_BASE_STATE})
+            result = await generate_node({**base_state})
 
         assert "⚠️ AI által generált tartalom" in result["draft"]
         assert "emberi felülvizsgálat szükséges" in result["draft"]

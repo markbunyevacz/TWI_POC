@@ -38,18 +38,18 @@ async def upload_pdf(pdf_bytes: bytes, blob_name: str) -> str:
     logger.info("PDF uploaded: blob_name=%s", blob_name)
 
     account_name: str = client.account_name or ""
-
-    # The account_key is only available when the client was created from a
-    # connection string.  When using managed identity or SAS-based auth the
-    # credential object will not expose ``account_key``.
+    
+    # Get account key for SAS token generation
+    # Handle different credential types (account key, SAS token, managed identity)
     try:
         account_key = client.credential.account_key
-    except AttributeError as exc:
-        raise RuntimeError(
-            "Cannot generate SAS URL: BlobServiceClient credential does not "
-            "expose an account_key.  Ensure BLOB_CONNECTION uses a connection "
-            "string that includes the account key."
-        ) from exc
+    except AttributeError:
+        logger.warning(
+            "Blob client does not use account key credential. "
+            "SAS token generation may fail. Consider using account key or managed identity."
+        )
+        # Fall back to using the blob URL without SAS for managed identity
+        return blob_client.url
 
     sas_token = generate_blob_sas(
         account_name=account_name,

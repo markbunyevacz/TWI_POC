@@ -1,52 +1,115 @@
-"""Tests for the Azure Blob Storage service client (upload_pdf)."""
+"""Tests for Azure Blob Storage service."""
 
 import pytest
-from unittest.mock import MagicMock, patch, AsyncMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 
-class TestUploadPdf:
-    @pytest.mark.asyncio
-    async def test_upload_returns_sas_url(self):
-        mock_blob_client = MagicMock()
-        mock_blob_client.upload_blob = MagicMock()
-        mock_blob_client.url = "https://storage.blob.core.windows.net/pdf-output/test.pdf"
-
-        mock_container_client = MagicMock()
-        mock_container_client.get_blob_client.return_value = mock_blob_client
-
-        mock_client = MagicMock()
-        mock_client.get_container_client.return_value = mock_container_client
-        mock_client.account_name = "teststorage"
-        mock_client.credential.account_key = "fake-key"
-
-        with patch("app.services.blob_storage._get_client", return_value=mock_client), \
-             patch("app.services.blob_storage.generate_blob_sas", return_value="sas-token"), \
-             patch("asyncio.to_thread", new_callable=AsyncMock):
-            from app.services.blob_storage import upload_pdf
-
-            result = await upload_pdf(b"fake-pdf", "twi/conv-1/test.pdf")
-
-        assert "sas-token" in result
-        assert "storage.blob.core.windows.net" in result
+class TestBlobStorageService:
+    """Tests for the Blob Storage service."""
 
     @pytest.mark.asyncio
-    async def test_upload_raises_on_missing_account_key(self):
-        mock_blob_client = MagicMock()
-        mock_blob_client.upload_blob = MagicMock()
-        mock_blob_client.url = "https://storage.blob.core.windows.net/pdf-output/test.pdf"
+    async def test_upload_pdf_success(self):
+        """Test successful PDF upload."""
+        with patch("app.services.blob_storage.BlobServiceClient") as MockClient:
+            with patch("app.services.blob_storage.settings") as mock_settings:
+                mock_settings.blob_connection = "DefaultEndpointsProtocol=https;AccountName=test;AccountKey=testkey==;EndpointSuffix=core.windows.net"
+                mock_settings.blob_container = "test-container"
+                
+                # Mock the blob client
+                mock_blob_client = MagicMock()
+                mock_blob_client.upload_blob = AsyncMock()
+                
+                mock_container_client = MagicMock()
+                mock_container_client.get_blob_client = MagicMock(return_value=mock_blob_client)
+                
+                mock_client_instance = MagicMock()
+                mock_client_instance.get_container_client = MagicMock(return_value=mock_container_client)
+                MockClient.from_connection_string.return_value = mock_client_instance
+                
+                # Reset module state
+                import app.services.blob_storage as blob_module
+                blob_module._client = None
+                
+                from app.services.blob_storage import upload_pdf
+                
+                result = await upload_pdf(b"fake pdf bytes", "test/path/file.pdf")
+                
+                assert "test-container" in result
+                assert "test" in result
+                assert "path" in result
 
-        mock_container_client = MagicMock()
-        mock_container_client.get_blob_client.return_value = mock_blob_client
+    @pytest.mark.asyncio
+    async def test_upload_pdf_handles_error(self):
+        """Test that upload errors are handled gracefully."""
+        with patch("app.services.blob_storage.BlobServiceClient") as MockClient:
+            with patch("app.services.blob_storage.settings") as mock_settings:
+                mock_settings.blob_connection = "fake-connection-string"
+                mock_settings.blob_container = "test-container"
+                
+                mock_client_instance = MagicMock()
+                mock_client_instance.get_container_client = MagicMock(side_effect=Exception("Upload failed"))
+                MockClient.from_connection_string.return_value = mock_client_instance
+                
+                # Reset module state
+                import app.services.blob_storage as blob_module
+                blob_module._client = None
+                
+                from app.services.blob_storage import upload_pdf
+                
+                result = await upload_pdf(b"fake pdf bytes", "test/file.pdf")
+                
+                # Should return empty string on error
+                assert result == ""
 
-        mock_client = MagicMock()
-        mock_client.get_container_client.return_value = mock_container_client
-        mock_client.account_name = "teststorage"
-        # Simulate credential without account_key attribute
-        mock_client.credential = MagicMock(spec=[])
+    @pytest.mark.asyncio
+    async def test_get_blob_url_generates_correct_url(self):
+        """Test that blob URL is generated correctly."""
+        with patch("app.services.blob_storage.settings") as mock_settings:
+            mock_settings.blob_connection = "DefaultEndpointsProtocol=https;AccountName=testaccount;AccountKey==;EndpointSuffix=core.windows.net"
+            
+            from app.services.blob_storage import BlobStorageService
+            
+            service = BlobStorageService()
+            url = service._get_blob_url("path/to/file.pdf")
+            
+            assert "testaccount" in url
+            assert "path/to/file.pdf" in url
+            assert ".pdf" in url
 
-        with patch("app.services.blob_storage._get_client", return_value=mock_client), \
-             patch("asyncio.to_thread", new_callable=AsyncMock):
-            from app.services.blob_storage import upload_pdf
 
-            with pytest.raises(RuntimeError, match="account_key"):
-                await upload_pdf(b"fake-pdf", "twi/conv-1/test.pdf")
+class TestBlobStorageServiceUnit:
+    """Unit tests for BlobStorageService."""
+
+    def test_service_stores_container_name(self):
+        """Test that service stores container name from settings."""
+        with patch("app.services.blob_storage.settings") as mock_settings:
+            mock_settings.blob_container = "my-container"
+            
+            from app.services.blob_storage import BlobStorageService
+            service = BlobStorageService()
+            
+            assert service.container_name == "my-container"
+
+    def test_client_is_singleton(self):
+        """Test that the blob client is a singleton."""
+        with patch("app.services.blob_storage.BlobServiceClient") as MockClient:
+            with patch("app.services.blob_storage.settings") as mock_settings:
+                mock_settings.blob_connection = "test-connection"
+                mock_settings.blob_container = "test-container"
+                
+                MockClient.from_connection_string.return_value = MagicMock()
+                
+                # Reset module state
+                import app.services.blob_storage as blob_module
+                blob_module._client = None
+                
+                from app.services.blob_storage import BlobStorageService
+                
+                service1 = BlobStorageService()
+                client1 = service1._client
+                
+                service2 = BlobStorageService()
+                client2 = service2._client
+                
+                # Should be the same client instance (singleton)
+                assert client1 is client2

@@ -12,43 +12,28 @@ _db: AsyncIOMotorDatabase | None = None
 
 
 def _get_db() -> AsyncIOMotorDatabase:
-    """Return a singleton Motor database handle.
-
-    Raises:
-        RuntimeError: If ``cosmos_connection`` is not configured.
-    """
     global _client, _db
     if _db is None:
         if not settings.cosmos_connection:
             raise RuntimeError(
-                "COSMOS_CONNECTION is not configured. "
-                "Set the cosmos_connection setting or the COSMOS_CONNECTION env var."
+                "Cosmos DB connection string not configured. "
+                "Set COSMOS_CONNECTION environment variable."
             )
-        try:
-            _client = AsyncIOMotorClient(settings.cosmos_connection)
-            _db = _client[settings.cosmos_database]
-        except Exception as exc:
-            logger.error("Failed to connect to Cosmos DB: %s", exc)
-            raise
+        _client = AsyncIOMotorClient(settings.cosmos_connection)
+        _db = _client[settings.cosmos_database]
     return _db
 
 
 class ConversationStore:
     def __init__(self) -> None:
-        self._collection = None
-
-    @property
-    def collection(self):
-        if self._collection is None:
-            self._collection = _get_db()["conversations"]
-        return self._collection
+        self.collection = _get_db()["conversations"]
 
     async def get_or_create(
         self,
         conversation_id: str,
         user_id: str,
         channel: str,
-        tenant_id: str = "",
+        tenant_id: str = "poc-tenant",
     ) -> dict:
         doc = await self.collection.find_one({"conversation_id": conversation_id})
         if doc:
@@ -77,13 +62,7 @@ class ConversationStore:
 
 class AuditStore:
     def __init__(self) -> None:
-        self._collection = None
-
-    @property
-    def collection(self):
-        if self._collection is None:
-            self._collection = _get_db()["audit_log"]
-        return self._collection
+        self.collection = _get_db()["audit_log"]
 
     async def log(self, entry: dict) -> None:
         entry["created_at"] = datetime.now(timezone.utc)
@@ -93,13 +72,7 @@ class AuditStore:
 
 class DocumentStore:
     def __init__(self) -> None:
-        self._collection = None
-
-    @property
-    def collection(self):
-        if self._collection is None:
-            self._collection = _get_db()["generated_documents"]
-        return self._collection
+        self.collection = _get_db()["generated_documents"]
 
     async def save(self, doc: dict) -> dict:
         doc["created_at"] = datetime.now(timezone.utc)
