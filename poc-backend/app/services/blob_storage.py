@@ -61,3 +61,35 @@ async def upload_pdf(pdf_bytes: bytes, blob_name: str) -> str:
     )
 
     return f"{blob_client.url}?{sas_token}"
+
+
+async def refresh_sas_url(blob_name: str, expiry_hours: int = 24) -> str:
+    """Generate a fresh SAS URL for an existing blob.
+
+    This is used when a previously issued SAS URL has expired and the
+    user needs to re-download the PDF.
+    """
+    client = _get_client()
+    container_client = client.get_container_client(settings.blob_container)
+    blob_client = container_client.get_blob_client(blob_name)
+
+    account_name: str = client.account_name or ""
+
+    try:
+        account_key = client.credential.account_key
+    except AttributeError as exc:
+        raise RuntimeError(
+            "Cannot generate SAS URL: BlobServiceClient credential does not "
+            "expose an account_key."
+        ) from exc
+
+    sas_token = generate_blob_sas(
+        account_name=account_name,
+        container_name=settings.blob_container,
+        blob_name=blob_name,
+        account_key=account_key,
+        permission=BlobSasPermissions(read=True),
+        expiry=datetime.now(timezone.utc) + timedelta(hours=expiry_hours),
+    )
+
+    return f"{blob_client.url}?{sas_token}"

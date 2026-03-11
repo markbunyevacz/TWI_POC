@@ -9,6 +9,9 @@ from app.services.cosmos_db import DocumentStore
 
 logger = logging.getLogger(__name__)
 
+# Module-level singleton — avoids re-creating the store on every graph run.
+_doc_store = DocumentStore()
+
 
 async def output_node(state: AgentState) -> AgentState:
     """Generate the TWI PDF and upload it to Blob Storage."""
@@ -27,8 +30,7 @@ async def output_node(state: AgentState) -> AgentState:
         title = extract_title(state["draft"])
 
         try:
-            doc_store = DocumentStore()
-            await doc_store.save({
+            await _doc_store.save({
                 "document_id": uuid.uuid4().hex,
                 "conversation_id": state["conversation_id"],
                 "user_id": state["user_id"],

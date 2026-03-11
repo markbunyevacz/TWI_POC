@@ -13,6 +13,7 @@ from app.agent.nodes.revise import revise_node
 from app.agent.nodes.approve import approve_node
 from app.agent.nodes.output import output_node
 from app.agent.nodes.audit import audit_node
+from app.agent.nodes.question import question_node
 
 logger = logging.getLogger(__name__)
 
@@ -26,7 +27,7 @@ def should_generate(state: AgentState) -> str:
     if intent in ("generate_twi", "edit_twi"):
         return "process_input"
     if intent == "question":
-        return "generate"   # Simple Q&A — skip structured input processing
+        return "question"   # Q&A — dedicated node with non-TWI prompt
     return "clarify"        # Unknown intent — ask for clarification
 
 
@@ -69,6 +70,7 @@ def create_agent_graph():
     builder.add_node("output", output_node)
     builder.add_node("audit", audit_node)
     builder.add_node("clarify", clarify_node)
+    builder.add_node("question", question_node)
 
     builder.set_entry_point("classify_intent")
     builder.add_conditional_edges(
@@ -76,7 +78,7 @@ def create_agent_graph():
         should_generate,
         {
             "process_input": "process_input",
-            "generate": "generate",
+            "question": "question",
             "clarify": "clarify",
         },
     )
@@ -106,6 +108,7 @@ def create_agent_graph():
     builder.add_edge("output", "audit")
     builder.add_edge("audit", END)
     builder.add_edge("clarify", END)
+    builder.add_edge("question", END)
 
     checkpointer = _create_checkpointer()
     return builder.compile(

@@ -66,6 +66,13 @@ class AgentizeBotHandler(ActivityHandler):
     # Text message → LangGraph
     # ------------------------------------------------------------------
 
+    #: Minimum message length to send to the LLM (avoids wasting tokens on
+    #: single-char or empty messages).
+    _MIN_MESSAGE_LENGTH = 3
+    #: Maximum message length accepted.  Longer messages are rejected to
+    #: prevent excessively large LLM prompts and potential abuse.
+    _MAX_MESSAGE_LENGTH = 4000
+
     async def _handle_text_message(
         self,
         turn_context: TurnContext,
@@ -74,6 +81,25 @@ class AgentizeBotHandler(ActivityHandler):
         user_id: str,
         channel_id: str,
     ) -> None:
+        # Input validation: reject too-short or too-long messages early
+        stripped = text.strip()
+        if len(stripped) < self._MIN_MESSAGE_LENGTH:
+            await self._send_message(
+                turn_context,
+                "Kérlek írj egy részletesebb üzenetet (legalább "
+                f"{self._MIN_MESSAGE_LENGTH} karakter).",
+                channel_id,
+            )
+            return
+        if len(stripped) > self._MAX_MESSAGE_LENGTH:
+            await self._send_message(
+                turn_context,
+                f"Az üzenet túl hosszú (maximum {self._MAX_MESSAGE_LENGTH} "
+                "karakter). Kérlek rövidítsd le.",
+                channel_id,
+            )
+            return
+
         # Guard: if the graph already has a paused thread for this conversation,
         # warn the user instead of orphaning the existing run.
         try:
@@ -140,6 +166,10 @@ class AgentizeBotHandler(ActivityHandler):
                 '"Készíts egy TWI utasítást a CNC-01 gép napi karbantartásáról."'
             )
             await self._send_message(turn_context, clarify_msg, channel_id)
+
+        elif status == "question_answered":
+            answer = result.get("draft", "")
+            await self._send_message(turn_context, answer, channel_id)
 
         elif status == "error":
             await self._send_message(
@@ -278,6 +308,17 @@ class AgentizeBotHandler(ActivityHandler):
             await self._send_card(turn_context, card, channel_id)
 
         elif action == "reject":
+            # Update conversation status in Cosmos DB
+            try:
+                await self.conversation_store.update_status(
+                    conversation_id, "rejected"
+                )
+            except Exception:
+                logger.warning(
+                    "Failed to update conversation status to 'rejected' "
+                    "for conversation=%s",
+                    conversation_id,
+                )
             await self._send_message(
                 turn_context,
                 "🗑️ Elvettem a vázlatot. Új kéréssel indíthatsz újat.",
@@ -300,8 +341,17 @@ class AgentizeBotHandler(ActivityHandler):
     async def _send_message(
         turn_context: TurnContext, text: str, channel_id: str = ""
     ) -> None:
-        """Send a plain text message.  Works on all channels."""
-        await turn_context.send_activity(text)
+        """Send a plain text message.  Works on all channels.
+
+        On Telegram the message is sent as-is (plain text).  On Teams
+        and other channels, the message is also sent as plain text but
+        could be extended to support Markdown formatting in the future.
+        """
+        if AgentizeBotHandler._is_telegram(channel_id):
+            # Telegram: strip any Teams-specific markdown that wouldn't render
+            await turn_context.send_activity(text)
+        else:
+            await turn_context.send_activity(text)
 
     @staticmethod
     async def _send_card(

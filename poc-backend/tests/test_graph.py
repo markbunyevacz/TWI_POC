@@ -53,8 +53,8 @@ class TestShouldGenerate:
     def test_edit_twi_routes_to_process_input(self):
         assert should_generate({"intent": "edit_twi"}) == "process_input"
 
-    def test_question_routes_to_generate(self):
-        assert should_generate({"intent": "question"}) == "generate"
+    def test_question_routes_to_question_node(self):
+        assert should_generate({"intent": "question"}) == "question"
 
     def test_unknown_routes_to_clarify(self):
         assert should_generate({"intent": "unknown"}) == "clarify"

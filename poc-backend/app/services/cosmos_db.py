@@ -74,6 +74,18 @@ class ConversationStore:
         await self.collection.insert_one(new_doc)
         return new_doc
 
+    async def update_status(self, conversation_id: str, status: str) -> None:
+        """Update the status field of an existing conversation."""
+        await self.collection.update_one(
+            {"conversation_id": conversation_id},
+            {
+                "$set": {
+                    "status": status,
+                    "last_activity": datetime.now(timezone.utc),
+                },
+            },
+        )
+
 
 class AuditStore:
     def __init__(self) -> None:
@@ -105,3 +117,47 @@ class DocumentStore:
         doc["created_at"] = datetime.now(timezone.utc)
         await self.collection.insert_one(doc)
         return doc
+
+    async def find_by_id(self, document_id: str) -> dict | None:
+        """Return a single document by its ``document_id``."""
+        return await self.collection.find_one({"document_id": document_id})
+
+    async def list_documents(
+        self,
+        user_id: str | None = None,
+        tenant_id: str | None = None,
+        limit: int = 50,
+        skip: int = 0,
+    ) -> list[dict]:
+        """Return documents, newest first, with optional user/tenant filter."""
+        query: dict = {}
+        if user_id:
+            query["user_id"] = user_id
+        if tenant_id:
+            query["tenant_id"] = tenant_id
+        cursor = (
+            self.collection.find(query)
+            .sort("created_at", -1)
+            .skip(skip)
+            .limit(limit)
+        )
+        results: list[dict] = []
+        async for doc in cursor:
+            doc.pop("_id", None)
+            results.append(doc)
+        return results
+
+    async def search(self, title_query: str, limit: int = 20) -> list[dict]:
+        """Search documents by title (case-insensitive substring match)."""
+        cursor = (
+            self.collection.find(
+                {"title": {"$regex": title_query, "$options": "i"}}
+            )
+            .sort("created_at", -1)
+            .limit(limit)
+        )
+        results: list[dict] = []
+        async for doc in cursor:
+            doc.pop("_id", None)
+            results.append(doc)
+        return results

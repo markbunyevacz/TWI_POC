@@ -7,6 +7,11 @@ _VERSION = "1.4"
 # conservatively to avoid oversized payloads.
 _DRAFT_DISPLAY_MAX_CHARS = 2000
 
+# Action.Submit data payloads also count toward the 28 KB limit.
+# We cap the draft stored in submit data separately so that the combined
+# card JSON stays safely below the threshold.
+_DRAFT_DATA_MAX_CHARS = 8000
+
 
 def create_review_card(draft: str, metadata: dict) -> dict:
     """Human-in-the-loop #1 — draft review card with approve / edit / reject actions."""
@@ -61,7 +66,7 @@ def create_review_card(draft: str, metadata: dict) -> dict:
                 "style": "positive",
                 "data": {
                     "action": "approve_draft",
-                    "draft": draft,
+                    "draft": draft[:_DRAFT_DATA_MAX_CHARS],
                     "metadata": metadata,
                 },
             },
@@ -70,7 +75,7 @@ def create_review_card(draft: str, metadata: dict) -> dict:
                 "title": "✏️ Szerkesztés kérem",
                 "data": {
                     "action": "request_edit",
-                    "draft": draft,
+                    "draft": draft[:_DRAFT_DATA_MAX_CHARS],
                     "metadata": metadata,
                 },
             },
@@ -122,7 +127,7 @@ def create_approval_card(draft: str, metadata: dict) -> dict:
                 "style": "positive",
                 "data": {
                     "action": "final_approve",
-                    "draft": draft,
+                    "draft": draft[:_DRAFT_DATA_MAX_CHARS],
                     "metadata": metadata,
                 },
             },
@@ -131,7 +136,7 @@ def create_approval_card(draft: str, metadata: dict) -> dict:
                 "title": "↩️ Vissza a szerkesztéshez",
                 "data": {
                     "action": "request_edit",
-                    "draft": draft,
+                    "draft": draft[:_DRAFT_DATA_MAX_CHARS],
                     "metadata": metadata,
                 },
             },

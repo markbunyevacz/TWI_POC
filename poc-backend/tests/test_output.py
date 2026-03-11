@@ -1,45 +1,51 @@
+"""Tests for the output_node: full pipeline, partial failures, and error paths."""
+
 import pytest
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, patch, MagicMock
 
 from app.agent.nodes.output import output_node
 
 
+_BASE_STATE = {
+    "conversation_id": "conv-123",
+    "user_id": "test-user",
+    "tenant_id": "test-tenant",
+    "draft": "# TWI Cím\nIde jön a szöveg",
+    "draft_metadata": {"model": "test-model", "revision": 1},
+    "revision_count": 1,
+    "approval_timestamp": "2026-02-26T12:00:00Z",
+}
+
+
+def _make_mock_store() -> MagicMock:
+    mock = MagicMock()
+    mock.save = AsyncMock()
+    return mock
+
+
+# ---------------------------------------------------------------------------
+# Happy-path: full pipeline (generate → upload → save)
+# ---------------------------------------------------------------------------
+
+
 @pytest.mark.asyncio
 async def test_output_node_saves_to_document_store():
-    state = {
-        "conversation_id": "conv-123",
-        "user_id": "test-user",
-        "tenant_id": "test-tenant",
-        "draft": "# TWI Cím\nIde jön a szöveg",
-        "draft_metadata": {"model": "test-model", "revision": 1},
-        "revision_count": 1,
-        "approval_timestamp": "2026-02-26T12:00:00Z"
-    }
+    mock_store = _make_mock_store()
 
-    with patch("app.agent.nodes.output.generate_twi_pdf", new_callable=AsyncMock) as mock_generate_pdf, \
-         patch("app.agent.nodes.output.upload_pdf", new_callable=AsyncMock) as mock_upload_pdf, \
-         patch("app.agent.nodes.output.DocumentStore") as mock_document_store_class:
+    with patch("app.agent.nodes.output.generate_twi_pdf", new_callable=AsyncMock) as mock_gen, \
+         patch("app.agent.nodes.output.upload_pdf", new_callable=AsyncMock) as mock_upload, \
+         patch("app.agent.nodes.output._doc_store", mock_store):
 
-        mock_generate_pdf.return_value = b"fake-pdf-bytes"
-        mock_upload_pdf.return_value = "https://fake.url/blob.pdf"
+        mock_gen.return_value = b"fake-pdf-bytes"
+        mock_upload.return_value = "https://fake.url/blob.pdf"
 
-        mock_store_instance = mock_document_store_class.return_value
-        mock_store_instance.save = AsyncMock()
+        result = await output_node(dict(_BASE_STATE))
 
-        result = await output_node(state)
+        mock_gen.assert_called_once()
+        mock_upload.assert_called_once()
+        mock_store.save.assert_called_once()
 
-        # Verify PDF generation was called
-        mock_generate_pdf.assert_called_once()
-
-        # Verify Blob Storage upload was called
-        mock_upload_pdf.assert_called_once()
-
-        # Verify DocumentStore was instantiated and save was called
-        mock_document_store_class.assert_called_once()
-        mock_store_instance.save.assert_called_once()
-
-        # Verify the saved document structure
-        saved_doc = mock_store_instance.save.call_args[0][0]
+        saved_doc = mock_store.save.call_args[0][0]
         assert saved_doc["conversation_id"] == "conv-123"
         assert saved_doc["user_id"] == "test-user"
         assert saved_doc["title"] == "TWI Cím"
@@ -51,7 +57,104 @@ async def test_output_node_saves_to_document_store():
         assert "document_id" in saved_doc
         assert saved_doc["approved_by"] == "test-user"
 
-        # Verify the returned state
         assert result["status"] == "completed"
         assert result["pdf_url"] == "https://fake.url/blob.pdf"
         assert result["title"] == "TWI Cím"
+
+
+# ---------------------------------------------------------------------------
+# Error path: PDF generation fails → status="error"
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_output_node_pdf_generation_failure():
+    mock_store = _make_mock_store()
+
+    with patch("app.agent.nodes.output.generate_twi_pdf", new_callable=AsyncMock) as mock_gen, \
+         patch("app.agent.nodes.output.upload_pdf", new_callable=AsyncMock) as mock_upload, \
+         patch("app.agent.nodes.output._doc_store", mock_store):
+
+        mock_gen.side_effect = RuntimeError("WeasyPrint crash")
+
+        result = await output_node(dict(_BASE_STATE))
+
+        assert result["status"] == "error"
+        mock_upload.assert_not_called()
+        mock_store.save.assert_not_called()
+
+
+# ---------------------------------------------------------------------------
+# Error path: Blob upload fails → status="error"
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_output_node_upload_failure():
+    mock_store = _make_mock_store()
+
+    with patch("app.agent.nodes.output.generate_twi_pdf", new_callable=AsyncMock) as mock_gen, \
+         patch("app.agent.nodes.output.upload_pdf", new_callable=AsyncMock) as mock_upload, \
+         patch("app.agent.nodes.output._doc_store", mock_store):
+
+        mock_gen.return_value = b"fake-pdf-bytes"
+        mock_upload.side_effect = RuntimeError("Blob connection failed")
+
+        result = await output_node(dict(_BASE_STATE))
+
+        assert result["status"] == "error"
+        mock_store.save.assert_not_called()
+
+
+# ---------------------------------------------------------------------------
+# Partial failure: DB save fails but PDF URL is preserved
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_output_node_db_save_failure_preserves_pdf_url():
+    mock_store = _make_mock_store()
+    mock_store.save.side_effect = RuntimeError("Cosmos DB unavailable")
+
+    with patch("app.agent.nodes.output.generate_twi_pdf", new_callable=AsyncMock) as mock_gen, \
+         patch("app.agent.nodes.output.upload_pdf", new_callable=AsyncMock) as mock_upload, \
+         patch("app.agent.nodes.output._doc_store", mock_store):
+
+        mock_gen.return_value = b"fake-pdf-bytes"
+        mock_upload.return_value = "https://fake.url/blob.pdf"
+
+        result = await output_node(dict(_BASE_STATE))
+
+        # PDF was uploaded successfully — status should still be "completed"
+        assert result["status"] == "completed"
+        assert result["pdf_url"] == "https://fake.url/blob.pdf"
+        mock_store.save.assert_called_once()
+
+
+# ---------------------------------------------------------------------------
+# Edge case: missing optional fields in state
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_output_node_missing_optional_fields():
+    mock_store = _make_mock_store()
+    minimal_state = {
+        "conversation_id": "conv-min",
+        "user_id": "user-min",
+        "draft": "Simple draft",
+    }
+
+    with patch("app.agent.nodes.output.generate_twi_pdf", new_callable=AsyncMock) as mock_gen, \
+         patch("app.agent.nodes.output.upload_pdf", new_callable=AsyncMock) as mock_upload, \
+         patch("app.agent.nodes.output._doc_store", mock_store):
+
+        mock_gen.return_value = b"fake-pdf-bytes"
+        mock_upload.return_value = "https://fake.url/blob.pdf"
+
+        result = await output_node(minimal_state)
+
+        assert result["status"] == "completed"
+        saved_doc = mock_store.save.call_args[0][0]
+        assert saved_doc["tenant_id"] == "poc-tenant"  # default
+        assert saved_doc["revision_count"] == 0  # default

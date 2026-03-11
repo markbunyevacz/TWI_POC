@@ -7,6 +7,9 @@ from botbuilder.connector.auth import JwtTokenValidation, SimpleCredentialProvid
 
 from app.config import settings
 from app.bot.bot_handler import AgentizeBotHandler
+from app.api.documents import router as documents_router
+from app.api.telegram import router as telegram_router
+from app.middleware.rate_limit import RateLimitMiddleware
 
 logging.basicConfig(
     level=getattr(logging, settings.log_level.upper(), logging.INFO),
@@ -30,6 +33,19 @@ app = FastAPI(
     docs_url="/docs" if settings.environment == "poc" else None,
     redoc_url="/redoc" if settings.environment == "poc" else None,
 )
+app.include_router(documents_router)
+app.include_router(telegram_router)
+app.add_middleware(RateLimitMiddleware)
+
+
+@app.on_event("startup")
+async def _startup() -> None:
+    """Resolve secrets from Key Vault (if configured) on startup."""
+    try:
+        from app.services.key_vault import resolve_secrets
+        await resolve_secrets()
+    except Exception as exc:
+        logger.warning("Key Vault startup resolution failed (non-fatal): %s", exc)
 
 # Bot Framework adapter
 _adapter_settings = BotFrameworkAdapterSettings(
