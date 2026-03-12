@@ -5,7 +5,8 @@
       "Bash(git commit:*)",
       "Bash(python -m pytest tests/test_cosmos_db.py -x -q)",
       "Bash(python -m pytest tests/ -x -q)",
-      "Bash(git push:*)"
+      "Bash(git push:*)",
+      "Bash(gh pr:*)"
     ]
   }
 }
