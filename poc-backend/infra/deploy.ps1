@@ -61,11 +61,18 @@ if ($WhatIf) {
 
 Write-Step 0 'Prerequisites'
 
-$azVersion = az version --query '"azure-cli"' -o tsv 2>$null
-if (-not $azVersion) {
+$azCmd = Get-Command az -ErrorAction SilentlyContinue
+if (-not $azCmd) {
     Write-Fail 'Azure CLI not found. Install: https://aka.ms/installazurecli'
     exit 1
 }
+$azVersion = 'installed'
+try {
+    $versionJson = az version -o json 2>$null
+    if ($versionJson) {
+        $azVersion = ($versionJson | ConvertFrom-Json).'azure-cli'
+    }
+} catch { }
 Write-Ok "Azure CLI $azVersion"
 
 $account = Confirm-AzLogin
