@@ -30,13 +30,13 @@ class AgentState(TypedDict):
     llm_model: Optional[str]
     llm_tokens_used: Optional[int]
     approval_timestamp: Optional[str]
-    messages: List[Any]
+    messages: list[Any]
 ```
 
 ## Graph Topology
 
 ```
-intent
+classify_intent
   ├── generate_twi / edit_twi → process_input → generate → review (INTERRUPT)
   ├── question                               → generate → review (INTERRUPT)
   └── unknown                                              → clarify → END
@@ -50,15 +50,17 @@ review (INTERRUPT #1)
 ## Graph Compilation
 
 ```python
-builder = StateGraph(AgentState)
-# Add all nodes...
-builder.compile(
-    checkpointer=MemorySaver(),           # PoC: in-memory; Prod: Cosmos DB checkpointer
-    interrupt_before=["review", "approve"],  # Human-in-the-loop breakpoints
-)
+async def create_agent_graph():
+    builder = StateGraph(AgentState)
+    # Add all 9 nodes...
+    checkpointer = await _get_checkpointer()  # MongoDB or MemorySaver fallback
+    return builder.compile(
+        checkpointer=checkpointer,
+        interrupt_before=["review", "approve"],
+    )
 ```
 
-**PoC uses `MemorySaver`** — for production, replace with a Cosmos DB checkpointer.
+`create_agent_graph()` is **async** because `_get_checkpointer()` attempts MongoDB (`MongoDBSaver`) initialization and falls back to `MemorySaver` if Cosmos DB is not configured.
 
 ## Running / Resuming the Graph
 
@@ -69,13 +71,14 @@ config = {"configurable": {"thread_id": conversation_id}}
 await graph.ainvoke(initial_state, config)
 
 # Resume after INTERRUPT (card action received)
-await graph.ainvoke(resume_state_update, config)
+await graph.aupdate_state(config, state_update)
+result = await graph.ainvoke(None, config)
 ```
 
-Resume state updates:
-- After review approve: `{"status": "approved"}`
+Resume state updates (built by `_build_resume_state()`):
 - After revision request: `{"status": "revision_requested", "revision_feedback": "..."}`
 - After final approval: `{"status": "approved", "approval_timestamp": "..."}`
+- Unknown `resume_from` value: raises `ValueError`
 
 ## Node Implementation Pattern
 
@@ -89,9 +92,10 @@ async def node_name(state: AgentState) -> AgentState:
 
 ## Key Nodes
 
-### intent_node
+### intent_node (graph name: `classify_intent`)
 Classifies user message. Calls LLM with `temperature=0.1, max_tokens=20`.
 Returns one of: `generate_twi | edit_twi | question | unknown`.
+Falls back to `unknown` if the LLM response is not a valid intent.
 
 ### generate_node
 - If `revision_feedback` present: includes previous draft + feedback in prompt
@@ -116,30 +120,41 @@ Card submit resumes with `status = "approved"` + `approval_timestamp`.
 2. `upload_pdf(bytes, blob_name)` → SAS URL (24h)
 3. Sets `pdf_url`, `pdf_blob_name`, `status = "completed"`
 
+### clarify_node (inline in `graph.py`)
+Returns `status = "clarification_needed"` for unknown intents. Minimal placeholder — flow ends immediately after.
+
 ### audit_node
 Saves to Cosmos DB `audit_log` collection:
-`conversation_id, user_id, tenant_id, channel, intent, llm_model, revision_count, pdf_blob_name, status, approval_timestamp`.
+`conversation_id, user_id, tenant_id, channel, intent, llm_model, llm_tokens_used, revision_count, pdf_blob_name, status, approval_timestamp`.
 
 ## AI Foundry LLM Call
 
 ```python
 # app/services/ai_foundry.py
-from azure.ai.inference import ChatCompletionsClient
+from azure.ai.inference.aio import ChatCompletionsClient
 from azure.core.credentials import AzureKeyCredential
 
-async def call_llm(prompt, system_prompt=None, temperature=None, max_tokens=None) -> str:
+async def call_llm(
+    prompt: str,
+    system_prompt: str | None = None,
+    temperature: float | None = None,
+    max_tokens: int | None = None,
+) -> tuple[str, int]:
+    """Returns (response_text, total_tokens_used)."""
     messages = []
     if system_prompt:
         messages.append({"role": "system", "content": system_prompt})
     messages.append({"role": "user", "content": prompt})
 
-    response = client.complete(
+    response = await client.complete(
         messages=messages,
         model=settings.ai_model,          # "gpt-4o"
         temperature=temperature or 0.3,
         max_tokens=max_tokens or 4000,
     )
-    return response.choices[0].message.content
+    content = response.choices[0].message.content
+    tokens = response.usage.total_tokens
+    return content, tokens
 ```
 
 ## TWI Generation Prompt Structure
