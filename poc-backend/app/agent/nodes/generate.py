@@ -55,7 +55,7 @@ async def generate_node(state: AgentState) -> AgentState:
                 f"\n\nMódosítsd a vázlatot a visszajelzés alapján."
             )
 
-        response, tokens = await call_llm(
+        response, in_tokens, out_tokens = await call_llm(
             system_prompt=_TWI_SYSTEM_PROMPT,
             prompt=_TWI_GENERATE_PROMPT.format(
                 message=state["message"],
@@ -68,7 +68,8 @@ async def generate_node(state: AgentState) -> AgentState:
         # EU AI Act mandatory label on every AI-generated output
         draft = f"{_EU_AI_ACT_LABEL}\n\n{response}"
 
-        current_tokens = state.get("llm_tokens_used") or 0
+        current_in = state.get("llm_tokens_input") or 0
+        current_out = state.get("llm_tokens_output") or 0
 
         return {
             **state,
@@ -79,7 +80,8 @@ async def generate_node(state: AgentState) -> AgentState:
                 "revision": state.get("revision_count", 0),
             },
             "llm_model": settings.ai_model,
-            "llm_tokens_used": current_tokens + tokens,
+            "llm_tokens_input": current_in + in_tokens,
+            "llm_tokens_output": current_out + out_tokens,
             "status": "review_needed",
         }
     except Exception as exc:

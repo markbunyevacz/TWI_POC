@@ -28,7 +28,8 @@ def sample_agent_state():
         "pdf_url": None,
         "pdf_blob_name": None,
         "llm_model": None,
-        "llm_tokens_used": None,
+        "llm_tokens_input": None,
+        "llm_tokens_output": None,
         "approval_timestamp": None,
         "messages": [],
     }

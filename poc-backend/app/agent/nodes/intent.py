@@ -23,7 +23,7 @@ _VALID_INTENTS = {"generate_twi", "edit_twi", "question", "unknown"}
 async def intent_node(state: AgentState) -> AgentState:
     """Classify user intent using LLM (temperature=0.1 for deterministic output)."""
     try:
-        response, tokens = await call_llm(
+        response, in_tokens, out_tokens = await call_llm(
             prompt=_INTENT_PROMPT.format(message=state["message"]),
             temperature=0.1,
             max_tokens=20,
@@ -32,8 +32,14 @@ async def intent_node(state: AgentState) -> AgentState:
         if intent not in _VALID_INTENTS:
             intent = "unknown"
 
-        current_tokens = state.get("llm_tokens_used") or 0
-        return {**state, "intent": intent, "llm_tokens_used": current_tokens + tokens}
+        current_in = state.get("llm_tokens_input") or 0
+        current_out = state.get("llm_tokens_output") or 0
+        return {
+            **state,
+            "intent": intent,
+            "llm_tokens_input": current_in + in_tokens,
+            "llm_tokens_output": current_out + out_tokens,
+        }
     except Exception as exc:
         logger.error("Intent classification failed: %s", exc, exc_info=True)
         return {**state, "intent": "unknown", "status": "error"}

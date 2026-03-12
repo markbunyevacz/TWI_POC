@@ -7,12 +7,11 @@ from app.agent.graph import (
     should_generate,
     after_review,
     after_revision,
+    reject_node,
     create_agent_graph,
     run_agent,
     _build_resume_state,
 )
-from langgraph.graph import END
-
 
 # ---------------------------------------------------------------------------
 # Shared state fixture helper
@@ -35,7 +34,8 @@ def _make_state(**overrides) -> dict:
         "pdf_url": None,
         "pdf_blob_name": None,
         "llm_model": None,
-        "llm_tokens_used": None,
+        "llm_tokens_input": None,
+        "llm_tokens_output": None,
         "approval_timestamp": None,
         "messages": [],
     }
@@ -71,11 +71,16 @@ class TestAfterReview:
     def test_revision_requested_routes_to_revise(self):
         assert after_review({"status": "revision_requested"}) == "revise"
 
-    def test_rejected_routes_to_end(self):
-        assert after_review({"status": "rejected"}) == END
+    def test_rejected_routes_to_reject(self):
+        assert after_review({"status": "rejected"}) == "reject"
 
-    def test_unknown_status_routes_to_end(self):
-        assert after_review({"status": "something_else"}) == END
+    def test_unknown_status_routes_to_reject(self):
+        assert after_review({"status": "something_else"}) == "reject"
+
+    def test_rejection_path_reaches_audit_via_reject_node(self):
+        """Rejection must route through reject -> audit instead of going to END directly."""
+        assert after_review({"status": "rejected"}) == "reject"
+        assert after_review({"status": ""}) == "reject"
 
 
 class TestAfterRevision:
@@ -90,6 +95,25 @@ class TestAfterRevision:
 
     def test_zero_revisions_routes_to_regenerate(self):
         assert after_revision({"revision_count": 0}) == "regenerate"
+
+
+# ---------------------------------------------------------------------------
+# Reject node
+# ---------------------------------------------------------------------------
+
+
+class TestRejectNode:
+    @pytest.mark.asyncio
+    async def test_reject_node_sets_status_rejected(self):
+        result = await reject_node(_make_state(status="approved"))
+        assert result["status"] == "rejected"
+
+    @pytest.mark.asyncio
+    async def test_reject_node_preserves_other_state(self):
+        state = _make_state(intent="generate_twi", draft="some draft")
+        result = await reject_node(state)
+        assert result["intent"] == "generate_twi"
+        assert result["draft"] == "some draft"
 
 
 # ---------------------------------------------------------------------------
@@ -138,7 +162,7 @@ class TestIntentNode:
     async def test_generate_twi_intent(self):
         with patch(
             "app.agent.nodes.intent.call_llm",
-            new=AsyncMock(return_value=("generate_twi", 10)),
+            new=AsyncMock(return_value=("generate_twi", 5, 5)),
         ):
             from app.agent.nodes.intent import intent_node
 
@@ -149,7 +173,7 @@ class TestIntentNode:
     async def test_invalid_llm_response_defaults_to_unknown(self):
         with patch(
             "app.agent.nodes.intent.call_llm",
-            new=AsyncMock(return_value=("gibberish", 10)),
+            new=AsyncMock(return_value=("gibberish", 5, 5)),
         ):
             from app.agent.nodes.intent import intent_node
 
@@ -162,7 +186,7 @@ class TestIntentNode:
     )
     async def test_all_valid_intents_pass_through(self, intent):
         with patch(
-            "app.agent.nodes.intent.call_llm", new=AsyncMock(return_value=(intent, 10))
+            "app.agent.nodes.intent.call_llm", new=AsyncMock(return_value=(intent, 5, 5))
         ):
             from app.agent.nodes.intent import intent_node
 

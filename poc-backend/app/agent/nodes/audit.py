@@ -6,10 +6,16 @@ from app.services.cosmos_db import AuditStore
 
 logger = logging.getLogger(__name__)
 
+_STATUS_TO_EVENT = {
+    "completed": "twi_generated",
+    "rejected": "twi_rejected",
+}
+
 
 async def audit_node(state: AgentState) -> AgentState:
     """Write an immutable audit log entry to Cosmos DB (EU AI Act compliance)."""
     try:
+        event_type = _STATUS_TO_EVENT.get(state.get("status", ""), "twi_generated")
         audit_store = AuditStore()
         await audit_store.log(
             {
@@ -17,10 +23,11 @@ async def audit_node(state: AgentState) -> AgentState:
                 "user_id": state["user_id"],
                 "tenant_id": state["tenant_id"],
                 "channel": state["channel"],
-                "event_type": "twi_generated",
+                "event_type": event_type,
                 "intent": state.get("intent"),
                 "llm_model": state.get("llm_model"),
-                "llm_tokens_used": state.get("llm_tokens_used"),
+                "llm_tokens_input": state.get("llm_tokens_input"),
+                "llm_tokens_output": state.get("llm_tokens_output"),
                 "revision_count": state.get("revision_count", 0),
                 "pdf_blob_name": state.get("pdf_blob_name"),
                 "status": state["status"],

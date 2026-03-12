@@ -25,7 +25,7 @@ class TestGenerateNode:
     async def test_draft_includes_eu_ai_act_label(self, base_state):
         with patch(
             "app.agent.nodes.generate.call_llm",
-            new=AsyncMock(return_value=(_LLM_RESPONSE, 50)),
+            new=AsyncMock(return_value=(_LLM_RESPONSE, 30, 20)),
         ):
             from app.agent.nodes.generate import generate_node
 
@@ -38,7 +38,7 @@ class TestGenerateNode:
     async def test_status_set_to_review_needed(self, base_state):
         with patch(
             "app.agent.nodes.generate.call_llm",
-            new=AsyncMock(return_value=(_LLM_RESPONSE, 50)),
+            new=AsyncMock(return_value=(_LLM_RESPONSE, 30, 20)),
         ):
             from app.agent.nodes.generate import generate_node
 
@@ -50,7 +50,7 @@ class TestGenerateNode:
     async def test_draft_metadata_contains_required_keys(self, base_state):
         with patch(
             "app.agent.nodes.generate.call_llm",
-            new=AsyncMock(return_value=(_LLM_RESPONSE, 50)),
+            new=AsyncMock(return_value=(_LLM_RESPONSE, 30, 20)),
         ):
             from app.agent.nodes.generate import generate_node
 
@@ -65,7 +65,7 @@ class TestGenerateNode:
     async def test_llm_model_set_in_state(self, base_state):
         with patch(
             "app.agent.nodes.generate.call_llm",
-            new=AsyncMock(return_value=(_LLM_RESPONSE, 50)),
+            new=AsyncMock(return_value=(_LLM_RESPONSE, 30, 20)),
         ):
             from app.agent.nodes.generate import generate_node
 
@@ -81,7 +81,7 @@ class TestGenerateNode:
 
         async def mock_llm(prompt, system_prompt=None, temperature=None, max_tokens=None):
             captured.append({"prompt": prompt})
-            return _LLM_RESPONSE, 50
+            return _LLM_RESPONSE, 30, 20
 
         state_with_revision = {
             **base_state,
@@ -104,7 +104,7 @@ class TestGenerateNode:
         state = {**base_state, "revision_count": 2}
         with patch(
             "app.agent.nodes.generate.call_llm",
-            new=AsyncMock(return_value=(_LLM_RESPONSE, 50)),
+            new=AsyncMock(return_value=(_LLM_RESPONSE, 30, 20)),
         ):
             from app.agent.nodes.generate import generate_node
 
@@ -116,7 +116,7 @@ class TestGenerateNode:
     async def test_draft_content_contains_llm_response(self, base_state):
         with patch(
             "app.agent.nodes.generate.call_llm",
-            new=AsyncMock(return_value=(_LLM_RESPONSE, 50)),
+            new=AsyncMock(return_value=(_LLM_RESPONSE, 30, 20)),
         ):
             from app.agent.nodes.generate import generate_node
 
@@ -131,7 +131,7 @@ class TestGenerateNode:
 
         async def mock_llm(prompt, system_prompt=None, temperature=None, max_tokens=None):
             captured.append(temperature)
-            return _LLM_RESPONSE, 50
+            return _LLM_RESPONSE, 30, 20
 
         with patch("app.agent.nodes.generate.call_llm", new=mock_llm):
             from app.agent.nodes.generate import generate_node
@@ -139,6 +139,49 @@ class TestGenerateNode:
             await generate_node({**base_state})
 
         assert captured[0] == 0.3
+
+
+class TestTokenAccumulation:
+    @pytest.mark.asyncio
+    async def test_generate_accumulates_split_tokens(self, base_state):
+        """Token counts accumulate as separate input/output fields."""
+        state = {**base_state, "llm_tokens_input": 100, "llm_tokens_output": 200}
+        with patch(
+            "app.agent.nodes.generate.call_llm",
+            new=AsyncMock(return_value=(_LLM_RESPONSE, 30, 20)),
+        ):
+            from app.agent.nodes.generate import generate_node
+
+            result = await generate_node(state)
+
+        assert result["llm_tokens_input"] == 130
+        assert result["llm_tokens_output"] == 220
+
+    @pytest.mark.asyncio
+    async def test_generate_starts_from_zero_when_none(self, base_state):
+        with patch(
+            "app.agent.nodes.generate.call_llm",
+            new=AsyncMock(return_value=(_LLM_RESPONSE, 30, 20)),
+        ):
+            from app.agent.nodes.generate import generate_node
+
+            result = await generate_node({**base_state})
+
+        assert result["llm_tokens_input"] == 30
+        assert result["llm_tokens_output"] == 20
+
+    @pytest.mark.asyncio
+    async def test_intent_accumulates_split_tokens(self, base_state):
+        with patch(
+            "app.agent.nodes.intent.call_llm",
+            new=AsyncMock(return_value=("generate_twi", 8, 2)),
+        ):
+            from app.agent.nodes.intent import intent_node
+
+            result = await intent_node({**base_state})
+
+        assert result["llm_tokens_input"] == 8
+        assert result["llm_tokens_output"] == 2
 
 
 class TestIntentNodeTemperature:
@@ -149,7 +192,7 @@ class TestIntentNodeTemperature:
 
         async def mock_llm(prompt, system_prompt=None, temperature=None, max_tokens=None):
             captured.append(temperature)
-            return "generate_twi", 10
+            return "generate_twi", 5, 5
 
         with patch("app.agent.nodes.intent.call_llm", new=mock_llm):
             from app.agent.nodes.intent import intent_node
