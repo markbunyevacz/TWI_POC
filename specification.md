@@ -981,6 +981,29 @@ Changes made during implementation versus `poc_technical_spec.md` v1.0:
 | Container App RBAC | Not in spec | MI --> Key Vault Secrets User role | Managed identity integration |
 | Container App probes | Not in spec | Liveness + Readiness on `/health` | Production readiness |
 
+### 16.1 Dependency Version Drift
+
+The original spec (`poc_technical_spec.md` v1.0) pinned dependencies with `==x.y.*`. During implementation the pinning strategy was changed to open floor versions (`>=x.y.z`) and several packages were upgraded to newer major/minor releases. A `requirements.lock` file now captures the exact resolved versions for reproducible Docker builds.
+
+| Package | Spec Version | Code Version | Resolved Version | Risk | Notes |
+|---|---|---|---|---|---|
+| `langgraph` | `==0.3.*` | `>=1.0.0` | 1.1.2 | **Major** | 0.3 to 1.0 API jump; code migrated to `aupdate_state` + `ainvoke(None)` resume pattern |
+| `langchain-core` | `==0.3.*` | `>=1.2.0` | 1.2.18 | **Major** | Only `RunnableConfig` import used; stable across versions |
+| `langsmith` | `==0.2.*` | `>=0.7.0` | 0.7.16 | Medium | Transitive dependency of LangGraph; not directly imported |
+| `fastapi` | `==0.115.*` | `>=0.135.0` | 0.135.1 | Low | No breaking API changes for our usage |
+| `weasyprint` | `==63.*` | `>=68.0` | 68.1 | Medium | Rendering behavior may differ; PDF output should be re-validated |
+| `botbuilder-core` | `==4.16.*` | `>=4.17.0` | 4.17.1 | Low | Minor version bump within same major |
+| `pymongo` | `==4.10.*` | `>=4.16.0` | 4.16.0 | Low | Minor version bumps |
+| `motor` | `==3.6.*` | `>=3.7.0` | 3.7.1 | Low | Minor |
+| `pydantic` | `==2.10.*` | `>=2.12.0` | 2.12.5 | Low | Minor |
+| `pydantic-settings` | `==2.7.*` | `>=2.13.0` | 2.13.1 | Low | Minor |
+| `pytest-asyncio` | `==0.25.*` | `>=1.3.0` | 1.3.0 | Medium | Major version; `asyncio_mode = "auto"` in `pyproject.toml` handles the breaking change |
+| `markdown` | *not in spec* | `>=3.10.0` | 3.10.2 | Low | Used in `pdf_generator.py` for markdown-to-HTML conversion; omitted from original spec |
+| `opentelemetry-api` | `==1.29.*` | `>=1.36.0,<1.40.0` | 1.36.0 | Low | Capped upper bound |
+| `opentelemetry-sdk` | `==1.29.*` | `>=1.36.0,<1.40.0` | 1.36.0 | Low | Capped upper bound |
+| `uvicorn` | `==0.32.*` | `>=0.41.0` | 0.41.0 | Low | No breaking changes |
+| `python-dotenv` | `==1.0.*` | `>=1.2.0` | 1.2.2 | Low | Minor |
+
 ---
 
 *agentize.eu -- AI & Organizational Solutions*

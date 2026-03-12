@@ -63,9 +63,9 @@ User (Teams/Telegram)
 
 | Kategória | Technológia | Verzió/Megjegyzés |
 |-----------|-------------|-------------------|
-| Orchestráció | LangGraph | 0.3.x, GA |
+| Orchestráció | LangGraph | 1.x, GA |
 | Backend | FastAPI + uvicorn | Python 3.12 |
-| Bot | Bot Framework (botbuilder-core) | 4.16.x |
+| Bot | Bot Framework (botbuilder-core) | 4.17.x |
 | LLM | Azure AI Foundry | Mistral Large VAGY GPT-4o, Data Zone Standard |
 | DB | Cosmos DB (MongoDB API) | Serverless, motor async driver |
 | Storage | Azure Blob Storage | PDF output, SAS URL-lel |
