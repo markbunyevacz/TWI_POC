@@ -9,7 +9,7 @@ alwaysApply: false
 ## State Definition
 `AgentState` is a `TypedDict`. All fields must have types. Status values are the contract between nodes and the bot handler.
 
-Valid `status` values: `"processing"` | `"review_needed"` | `"revision_requested"` | `"approved"` | `"completed"` | `"error"`
+Valid `status` values: `"processing"` | `"review_needed"` | `"revision_requested"` | `"approved"` | `"completed"` | `"rejected"` | `"clarification_needed"` | `"error"`
 
 ## Node Contract
 Every node receives `AgentState` and returns a **partial state dict** using spread:
@@ -33,9 +33,12 @@ Human-in-the-loop checkpoints are `interrupt_before=["review", "approve"]`. Neve
 Always use `_build_resume_state()` to construct the state update before resuming:
 
 ```python
-# resume_from="revision" → sets status + revision_feedback
-# resume_from="output"   → sets status="approved" + approval_timestamp
+# resume_from="revision"  → sets status + revision_feedback
+# resume_from="output"    → sets status="approved" + approval_timestamp
+# resume_from="rejection" → sets status="rejected"
 ```
+
+When resuming at `final_approve`, pass `as_node="approve"` so the graph skips the second interrupt and continues to `output → audit → END`. When resuming at `reject`, pass `as_node="review"` so `after_review` routes to `reject → audit → END`.
 
 ## Revision Loop Limit
 The `after_revision` conditional enforces **max 3 revision rounds** before forcing approval. Keep this guard in place.
@@ -44,5 +47,6 @@ The `after_revision` conditional enforces **max 3 revision rounds** before forci
 Conditional edge functions (`should_generate`, `after_review`, `after_revision`) must be pure functions — no side effects, no I/O. They only read state and return a node name string.
 
 ## Checkpointer
-- PoC: `MemorySaver` (in-memory, process-scoped)
-- Production upgrade path: Cosmos DB checkpointer using `thread_id = conversation_id`
+- `MongoDBSaver` (Cosmos DB) when `COSMOS_CONNECTION` is configured
+- Automatic fallback to `MemorySaver` (in-memory) if Cosmos DB is unavailable
+- Both use `thread_id = conversation_id`

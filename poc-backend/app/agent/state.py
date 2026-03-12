@@ -27,7 +27,8 @@ class AgentState(TypedDict):
 
     # Audit / telemetry
     llm_model: Optional[str]
-    llm_tokens_used: Optional[int]
+    llm_tokens_input: Optional[int]
+    llm_tokens_output: Optional[int]
     approval_timestamp: Optional[str]
 
     # Message history (LangGraph internal)

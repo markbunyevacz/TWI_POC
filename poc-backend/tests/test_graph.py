@@ -35,7 +35,8 @@ def _make_state(**overrides) -> dict:
         "pdf_url": None,
         "pdf_blob_name": None,
         "llm_model": None,
-        "llm_tokens_used": None,
+        "llm_tokens_input": None,
+        "llm_tokens_output": None,
         "approval_timestamp": None,
         "messages": [],
     }
@@ -116,6 +117,10 @@ class TestBuildResumeState:
         result = _build_resume_state("revision", {})
         assert result["revision_feedback"] == ""
 
+    def test_rejection_resume(self):
+        result = _build_resume_state("rejection", {})
+        assert result["status"] == "rejected"
+
 
 # ---------------------------------------------------------------------------
 # Graph compilation
@@ -123,8 +128,9 @@ class TestBuildResumeState:
 
 
 class TestCreateAgentGraph:
-    def test_graph_compiles_without_error(self):
-        graph = create_agent_graph()
+    @pytest.mark.asyncio
+    async def test_graph_compiles_without_error(self):
+        graph = await create_agent_graph()
         assert graph is not None
 
 

@@ -67,6 +67,7 @@ class AgentizeBotHandler(ActivityHandler):
         # Note: graph is initialized lazily since get_graph is now async
         self.graph = None
         self.conversation_store = ConversationStore()
+        self._pending_revision: dict[str, bool] = {}
     
     async def _get_graph(self):
         """Lazy initialization of the graph."""
@@ -223,10 +224,37 @@ class AgentizeBotHandler(ActivityHandler):
     ) -> None:
         """Handle text responses from Telegram users for approvals."""
         text_lower = text.lower().strip()
-        
+
+        # If we're waiting for revision feedback, treat this message as the feedback
+        if self._pending_revision.pop(conversation_id, False):
+            await turn_context.send_activity(
+                "⏳ Módosítom a szerkesztési kérésed alapján..."
+            )
+            try:
+                result = await run_agent(
+                    graph=await self._get_graph(),
+                    message=text,
+                    user_id=user_id,
+                    conversation_id=conversation_id,
+                    resume_from="revision",
+                    context={"feedback": text},
+                )
+            except Exception as exc:
+                logger.error("Telegram revision error: %s", exc, exc_info=True)
+                await turn_context.send_activity(f"❌ Hiba a szerkesztés során: {exc}")
+                return
+
+            reply = _format_telegram_review(
+                result.get("draft", ""),
+                result.get("draft_metadata", {}),
+            )
+            await turn_context.send_activity(reply)
+            return
+
         # Check for approval responses
         if text_lower in ["igen", "yes", "y", "i", "elfogadas", "elfogad", "approve", "approved"]:
-            # Final approval → resume graph → PDF generation
+            # Final approval → resume graph → PDF generation.
+            # as_node="approve" so the graph skips the second interrupt.
             await turn_context.send_activity("⏳ PDF generalas folyamatban...")
             timestamp = datetime.now(timezone.utc).isoformat()
 
@@ -238,6 +266,7 @@ class AgentizeBotHandler(ActivityHandler):
                     conversation_id=conversation_id,
                     resume_from="output",
                     context={"timestamp": timestamp},
+                    as_node="approve",
                 )
             except Exception as exc:
                 logger.error("Agent output error: %s", exc, exc_info=True)
@@ -259,11 +288,23 @@ class AgentizeBotHandler(ActivityHandler):
             await turn_context.send_activity(
                 "🗑️ Elvettem a vazlatot. Uj keressel indithatsz ujat."
             )
+            try:
+                await run_agent(
+                    graph=await self._get_graph(),
+                    message="",
+                    user_id=user_id,
+                    conversation_id=conversation_id,
+                    resume_from="rejection",
+                    as_node="review",
+                )
+            except Exception as exc:
+                logger.error("Rejection audit failed: %s", exc, exc_info=True)
             
         # Check for revision requests
         elif text_lower in ["modositas", "change", "modify", "revise"]:
+            self._pending_revision[conversation_id] = True
             await turn_context.send_activity(
-                "Kerlek ird le a modositasi keteseidet a dokumentumhoz:"
+                "Kerlek ird le a modositasi kereseidet a dokumentumhoz:"
             )
             
         else:
@@ -305,6 +346,7 @@ class AgentizeBotHandler(ActivityHandler):
                         conversation_id=conversation_id,
                         resume_from="output",
                         context={"timestamp": timestamp},
+                        as_node="approve",
                     )
                 except Exception as exc:
                     logger.error("Agent output error: %s", exc, exc_info=True)
@@ -370,7 +412,10 @@ class AgentizeBotHandler(ActivityHandler):
                 await self._send_card(turn_context, card)
 
         elif action == "final_approve":
-            # Final approval → resume graph → PDF generation
+            # Final approval → resume graph → PDF generation.
+            # as_node="approve" skips the second interrupt (interrupt_before
+            # includes both "review" and "approve") so the graph continues
+            # directly to output → audit → END.
             await turn_context.send_activity("⏳ PDF generálás folyamatban...")
             timestamp = datetime.now(timezone.utc).isoformat()
 
@@ -382,6 +427,7 @@ class AgentizeBotHandler(ActivityHandler):
                     conversation_id=conversation_id,
                     resume_from="output",
                     context={"timestamp": timestamp},
+                    as_node="approve",
                 )
             except Exception as exc:  # noqa: BLE001
                 logger.error("Agent output error: %s", exc, exc_info=True)
@@ -411,6 +457,18 @@ class AgentizeBotHandler(ActivityHandler):
             await turn_context.send_activity(
                 "🗑️ Elvettem a vázlatot. Új kéréssel indíthatsz újat."
             )
+            # Resume graph so reject_node → audit_node fires (EU AI Act audit trail)
+            try:
+                await run_agent(
+                    graph=await self._get_graph(),
+                    message="",
+                    user_id=user_id,
+                    conversation_id=conversation_id,
+                    resume_from="rejection",
+                    as_node="review",
+                )
+            except Exception as exc:
+                logger.error("Rejection audit failed: %s", exc, exc_info=True)
 
         else:
             logger.warning("Unknown card action: %s", action)

@@ -159,47 +159,52 @@ class TestBotHandler:
     async def test_handle_telegram_text_approve(self):
         """Test handling 'Igen' approval response from Telegram."""
         from app.bot.bot_handler import AgentizeBotHandler
-        
+
         handler = AgentizeBotHandler()
         handler._get_graph = AsyncMock(return_value=MagicMock())
-        
+
         turn_context = MagicMock()
         turn_context.send_activity = AsyncMock()
-        
+
         with patch("app.bot.bot_handler.run_agent", new_callable=AsyncMock) as mock_run:
             mock_run.return_value = {
                 "draft": "content",
                 "draft_metadata": {},
                 "pdf_url": "https://example.com/pdf",
-                "title": "Test Doc"
+                "title": "Test Doc",
             }
-            
+
             await handler._handle_telegram_text(
                 turn_context,
                 "igen",
                 "conv-123",
-                "user-456"
+                "user-456",
             )
-            
+
             assert turn_context.send_activity.call_count >= 1
+            _, kwargs = mock_run.call_args
+            assert kwargs["as_node"] == "approve"
 
     @pytest.mark.asyncio
     async def test_handle_telegram_text_reject(self):
-        """Test handling 'Nem' rejection response from Telegram."""
+        """Test handling 'Nem' rejection response from Telegram — resumes graph for audit."""
         from app.bot.bot_handler import AgentizeBotHandler
-        
+
         handler = AgentizeBotHandler()
-        
+        handler._get_graph = AsyncMock(return_value=MagicMock())
+
         turn_context = MagicMock()
         turn_context.send_activity = AsyncMock()
-        
-        await handler._handle_telegram_text(
-            turn_context,
-            "nem",
-            "conv-123",
-            "user-456"
-        )
-        
+
+        with patch("app.bot.bot_handler.run_agent", new_callable=AsyncMock) as mock_run:
+            mock_run.return_value = {"status": "rejected"}
+            await handler._handle_telegram_text(
+                turn_context,
+                "nem",
+                "conv-123",
+                "user-456",
+            )
+
         call_args = [str(c) for c in turn_context.send_activity.call_args_list]
         assert any("Elvettem" in str(c) or "törlés" in str(c) for c in call_args)
 
@@ -260,25 +265,34 @@ class TestBotHandler:
 
     @pytest.mark.asyncio
     async def test_handle_card_action_reject(self):
-        """Test reject action handling."""
+        """Test reject action handling — resumes graph for audit trail."""
         from app.bot.bot_handler import AgentizeBotHandler
-        
+
         handler = AgentizeBotHandler()
-        
+        handler._get_graph = AsyncMock(return_value=MagicMock())
+
         turn_context = MagicMock()
+        turn_context.activity.channel_id = "msteams"
         turn_context.send_activity = AsyncMock()
-        
+
         value = {"action": "reject"}
-        
-        await handler._handle_card_action(
-            turn_context,
-            value,
-            "conv-123",
-            "user-456"
-        )
-        
-        call_args = [str(c) for c in turn_context.send_activity.call_args_list]
-        assert any("Elvettem" in str(c) for c in call_args)
+
+        with patch("app.bot.bot_handler.run_agent", new_callable=AsyncMock) as mock_run:
+            mock_run.return_value = {"status": "rejected"}
+            await handler._handle_card_action(
+                turn_context,
+                value,
+                "conv-123",
+                "user-456",
+            )
+
+            call_args = [str(c) for c in turn_context.send_activity.call_args_list]
+            assert any("Elvettem" in str(c) for c in call_args)
+
+            mock_run.assert_called_once()
+            _, kwargs = mock_run.call_args
+            assert kwargs["resume_from"] == "rejection"
+            assert kwargs["as_node"] == "review"
 
 
 class TestRequestEditSource:
@@ -350,6 +364,114 @@ class TestRequestEditSource:
             mock_run.assert_called_once()
             _, kwargs = mock_run.call_args
             assert kwargs["as_node"] is None
+
+
+class TestFinalApproveAsNode:
+    """Verify that final_approve passes as_node='approve' to skip the second interrupt."""
+
+    @pytest.mark.asyncio
+    async def test_final_approve_teams_passes_as_node_approve(self):
+        from app.bot.bot_handler import AgentizeBotHandler
+
+        handler = AgentizeBotHandler()
+        handler._get_graph = AsyncMock(return_value=MagicMock())
+
+        turn_context = MagicMock()
+        turn_context.activity.channel_id = "msteams"
+        turn_context.send_activity = AsyncMock()
+
+        value = {
+            "action": "final_approve",
+            "draft": "approved draft",
+            "metadata": {"model": "gpt-4o"},
+        }
+
+        with patch("app.bot.bot_handler.run_agent", new_callable=AsyncMock) as mock_run:
+            mock_run.return_value = {
+                "pdf_url": "https://blob/test.pdf",
+                "title": "TWI Doc",
+                "draft_metadata": {"model": "gpt-4o"},
+            }
+            await handler._handle_card_action(
+                turn_context, value, "conv-123", "user-456"
+            )
+
+            mock_run.assert_called_once()
+            _, kwargs = mock_run.call_args
+            assert kwargs["as_node"] == "approve"
+            assert kwargs["resume_from"] == "output"
+
+    @pytest.mark.asyncio
+    async def test_final_approve_telegram_passes_as_node_approve(self):
+        from app.bot.bot_handler import AgentizeBotHandler
+
+        handler = AgentizeBotHandler()
+        handler._get_graph = AsyncMock(return_value=MagicMock())
+
+        turn_context = MagicMock()
+        turn_context.send_activity = AsyncMock()
+
+        with patch("app.bot.bot_handler.run_agent", new_callable=AsyncMock) as mock_run:
+            mock_run.return_value = {
+                "pdf_url": "https://blob/test.pdf",
+                "title": "TWI Doc",
+                "draft_metadata": {},
+            }
+            await handler._handle_telegram_text(
+                turn_context, "igen", "conv-123", "user-456"
+            )
+
+            mock_run.assert_called_once()
+            _, kwargs = mock_run.call_args
+            assert kwargs["as_node"] == "approve"
+
+
+class TestTelegramRevisionFeedback:
+    """Verify the Telegram revision feedback state tracking."""
+
+    @pytest.mark.asyncio
+    async def test_modositas_sets_pending_state(self):
+        from app.bot.bot_handler import AgentizeBotHandler
+
+        handler = AgentizeBotHandler()
+        turn_context = MagicMock()
+        turn_context.send_activity = AsyncMock()
+
+        await handler._handle_telegram_text(
+            turn_context, "modositas", "conv-123", "user-456"
+        )
+
+        assert handler._pending_revision.get("conv-123") is True
+
+    @pytest.mark.asyncio
+    async def test_next_message_after_modositas_treated_as_feedback(self):
+        from app.bot.bot_handler import AgentizeBotHandler
+
+        handler = AgentizeBotHandler()
+        handler._get_graph = AsyncMock(return_value=MagicMock())
+        handler._pending_revision["conv-123"] = True
+
+        turn_context = MagicMock()
+        turn_context.send_activity = AsyncMock()
+
+        with patch("app.bot.bot_handler.run_agent", new_callable=AsyncMock) as mock_run:
+            mock_run.return_value = {
+                "draft": "revised draft",
+                "draft_metadata": {"model": "gpt-4o", "generated_at": "now"},
+            }
+            await handler._handle_telegram_text(
+                turn_context,
+                "Add temperature check to step 3",
+                "conv-123",
+                "user-456",
+            )
+
+            mock_run.assert_called_once()
+            _, kwargs = mock_run.call_args
+            assert kwargs["resume_from"] == "revision"
+            assert kwargs["context"]["feedback"] == "Add temperature check to step 3"
+
+        assert "conv-123" not in handler._pending_revision
 
 
 class TestBotHandlerEdgeCases:

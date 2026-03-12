@@ -77,7 +77,8 @@ result = await graph.ainvoke(None, config)
 
 Resume state updates (built by `_build_resume_state()`):
 - After revision request: `{"status": "revision_requested", "revision_feedback": "..."}`
-- After final approval: `{"status": "approved", "approval_timestamp": "..."}`
+- After final approval: `{"status": "approved", "approval_timestamp": "..."}` with `as_node="approve"`
+- After rejection: `{"status": "rejected"}` with `as_node="review"`
 - Unknown `resume_from` value: raises `ValueError`
 
 ## Node Implementation Pattern

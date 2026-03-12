@@ -219,7 +219,11 @@ def _build_resume_state(resume_from: str, context: dict) -> dict:
             "status": "approved",
             "approval_timestamp": context.get("timestamp"),
         }
+    if resume_from == "rejection":
+        return {
+            "status": "rejected",
+        }
     raise ValueError(
         f"Unknown resume_from value: {resume_from!r}. "
-        "Expected 'revision' or 'output'."
+        "Expected 'revision', 'output', or 'rejection'."
     )
