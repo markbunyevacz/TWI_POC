@@ -1,13 +1,14 @@
 """Tests for the LangGraph agent graph: routing, revision loop, and state transitions."""
 
 import pytest
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 from app.agent.graph import (
     should_generate,
     after_review,
     after_revision,
     create_agent_graph,
+    run_agent,
     _build_resume_state,
 )
 from langgraph.graph import END
@@ -189,3 +190,65 @@ class TestReviseNode:
 
         result = await revise_node(_make_state())
         assert result["revision_count"] == 1
+
+
+# ---------------------------------------------------------------------------
+# run_agent — as_node passthrough
+# ---------------------------------------------------------------------------
+
+
+class TestRunAgentAsNode:
+    """Verify that run_agent forwards the as_node parameter to aupdate_state."""
+
+    def _mock_graph(self, return_state: dict | None = None):
+        graph = MagicMock()
+        graph.aupdate_state = AsyncMock()
+        graph.ainvoke = AsyncMock(return_value=return_state or _make_state())
+        return graph
+
+    @pytest.mark.asyncio
+    async def test_as_node_forwarded_to_aupdate_state(self):
+        graph = self._mock_graph()
+        await run_agent(
+            graph,
+            message="",
+            user_id="u1",
+            conversation_id="c1",
+            resume_from="revision",
+            context={"feedback": "fix step 3"},
+            as_node="review",
+        )
+
+        graph.aupdate_state.assert_called_once()
+        _, kwargs = graph.aupdate_state.call_args
+        assert kwargs["as_node"] == "review"
+
+    @pytest.mark.asyncio
+    async def test_as_node_defaults_to_none(self):
+        graph = self._mock_graph()
+        await run_agent(
+            graph,
+            message="",
+            user_id="u1",
+            conversation_id="c1",
+            resume_from="revision",
+            context={"feedback": "minor tweak"},
+        )
+
+        graph.aupdate_state.assert_called_once()
+        _, kwargs = graph.aupdate_state.call_args
+        assert kwargs["as_node"] is None
+
+    @pytest.mark.asyncio
+    async def test_as_node_ignored_for_new_conversation(self):
+        graph = self._mock_graph()
+        await run_agent(
+            graph,
+            message="Készíts TWI utasítást",
+            user_id="u1",
+            conversation_id="c1",
+            as_node="review",
+        )
+
+        graph.aupdate_state.assert_not_called()
+        graph.ainvoke.assert_called_once()
