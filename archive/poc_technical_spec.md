@@ -1,9 +1,16 @@
+> **[ARCHIVED — 2026-03-12]**
+> This document is superseded by `specification.md` v1.1 (2026-03-12).
+> It was the original pre-implementation design spec. During implementation,
+> 13 deviations were made (see `specification.md` section 16).
+> Kept for historical reference only — do NOT use for development.
+
 # agentize.eu PoC — Teljes Technikai Specifikáció
 
 **Verzió:** 1.0
 **Dátum:** 2026-02-26
 **Cél:** Vibe-coding reference — minden információ egy helyen a PoC implementálásához
 **Időkeret:** 10 munkanap
+**Status:** ARCHIVED — superseded by `specification.md` v1.1
 
 ---
 

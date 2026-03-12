@@ -1,6 +1,13 @@
+> **[ARCHIVED — 2026-03-12]**
+> This document is superseded by `specification.md` v1.1 (2026-03-12).
+> Core decisions are still valid but details (default model, tech versions,
+> checklists) are stale. All information is now in `specification.md`.
+> Kept for historical reference only — do NOT use for development.
+
 # agentize.eu PoC — Vibe-Coding Context & Constraints
 
 **Ez a dokumentum a kódolási session-ök előtt olvasandó. Minden üzleti döntés és constraint egy helyen.**
+**Status:** ARCHIVED — superseded by `specification.md` v1.1
 
 ---
 

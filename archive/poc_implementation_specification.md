@@ -1,8 +1,13 @@
+> **[ARCHIVED — 2026-03-12]**
+> This document is a strict subset of `specification.md` v1.1 (2026-03-12).
+> All content here (sections 1 & 2) exists in the authoritative spec with
+> equal or greater detail. Kept for historical reference only.
+
 # agentize.eu PoC — Implementation Specification
 
 **Version:** 1.0
 **Date:** 2026-03-12
-**Status:** Implemented
+**Status:** ARCHIVED — redundant, merged into `specification.md` v1.1
 **Scope:** TWI (Training Within Industry) Work Instruction Generator — Enterprise AI Platform PoC
 
 ---

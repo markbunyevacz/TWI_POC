@@ -93,4 +93,4 @@ See `.env.example` — key vars:
 - For LangGraph agent details, see the `agentize-poc-langgraph` skill
 - For Bicep infrastructure, see the `agentize-poc-azure-infra` skill
 - For Bot Framework and Adaptive Cards, see the `agentize-poc-bot-cards` skill
-- Full spec: `poc_technical_spec.md`
+- Full spec: `specification.md` (v1.1, authoritative)

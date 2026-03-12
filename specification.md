@@ -3,7 +3,7 @@
 **Version:** 1.1
 **Date:** 2026-03-12
 **Status:** Implemented
-**Original design spec:** `poc_technical_spec.md` v1.0 (2026-02-26)
+**Original design spec:** `archive/poc_technical_spec.md` v1.0 (2026-02-26) [ARCHIVED]
 **Deployment guide:** `go_live_guide.md`
 
 ---
@@ -960,7 +960,7 @@ The PoC is considered complete when:
 
 ## 16. Deviations from Original Spec
 
-Changes made during implementation versus `poc_technical_spec.md` v1.0:
+Changes made during implementation versus `archive/poc_technical_spec.md` v1.0:
 
 | Area | Original Spec | Actual Implementation | Reason |
 |---|---|---|---|
