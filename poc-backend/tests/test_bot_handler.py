@@ -85,6 +85,7 @@ class TestBotHandler:
         mock.activity.channel_id = "msteams"
         mock.activity.text = "Hello"
         mock.activity.value = None
+        mock.send_activity = AsyncMock()
         return mock
 
     @pytest.fixture
@@ -105,7 +106,6 @@ class TestBotHandler:
             from app.bot.bot_handler import AgentizeBotHandler
             handler = AgentizeBotHandler()
             
-            # Need to mock the graph to avoid initialization issues
             with patch.object(handler, "_get_graph", new_callable=AsyncMock) as mock_get_graph:
                 mock_get_graph.return_value = MagicMock()
                 with patch("app.bot.bot_handler.run_agent", new_callable=AsyncMock) as mock_run:
@@ -117,47 +117,43 @@ class TestBotHandler:
     @pytest.mark.asyncio
     async def test_on_members_added_sends_welcome_card(self):
         """Test that bot sends welcome card when added to conversation."""
-        with patch("app.bot.bot_handler.AgentizeBotHandler") as MockHandler, \
-             patch("app.bot.bot_handler.create_welcome_card") as mock_welcome_card:
-            
-            mock_handler_instance = MagicMock()
-            mock_handler_instance._send_card = AsyncMock()
-            MockHandler.return_value = mock_handler_instance
-            
-            # Need to instantiate properly
-            from app.bot.bot_handler import AgentizeBotHandler
-            handler = AgentizeBotHandler()
-            
-            # Create mock members_added
-            members_added = [MagicMock()]
-            members_added[0].id = "new-user"
-            
-            turn_context = MagicMock()
-            turn_context.activity = MagicMock()
-            turn_context.activity.recipient = MagicMock()
-            turn_context.activity.recipient.id = "bot-id"
-            
+        from app.bot.bot_handler import AgentizeBotHandler
+
+        handler = AgentizeBotHandler()
+
+        members_added = [MagicMock()]
+        members_added[0].id = "new-user"
+
+        turn_context = MagicMock()
+        turn_context.activity = MagicMock()
+        turn_context.activity.recipient = MagicMock()
+        turn_context.activity.recipient.id = "bot-id"
+        turn_context.send_activity = AsyncMock()
+
+        with patch.object(handler, "_send_card", new_callable=AsyncMock) as mock_send:
             await handler.on_members_added_activity(members_added, turn_context)
+            mock_send.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_handle_text_message_telegram_routes_correctly(self, mock_telegram_context):
         """Test that Telegram messages are routed to Telegram handler."""
-        with patch("app.bot.bot_handler.AgentizeBotHandler") as MockHandler:
-            handler = AgentizeBotHandler()
-            handler._get_graph = AsyncMock(return_value=MagicMock())
-            handler._handle_telegram_response = AsyncMock()
-            
-            with patch("app.bot.bot_handler.run_agent", new_callable=AsyncMock) as mock_run:
-                mock_run.return_value = {"status": "review_needed", "draft": "test", "draft_metadata": {}}
-                await handler._handle_text_message(
-                    mock_telegram_context,
-                    "test message",
-                    "conv-123",
-                    "user-456",
-                    "telegram"
-                )
-            
-            handler._handle_telegram_response.assert_called_once()
+        from app.bot.bot_handler import AgentizeBotHandler
+
+        handler = AgentizeBotHandler()
+        handler._get_graph = AsyncMock(return_value=MagicMock())
+        handler._handle_telegram_response = AsyncMock()
+
+        with patch("app.bot.bot_handler.run_agent", new_callable=AsyncMock) as mock_run:
+            mock_run.return_value = {"status": "review_needed", "draft": "test", "draft_metadata": {}}
+            await handler._handle_text_message(
+                mock_telegram_context,
+                "test message",
+                "conv-123",
+                "user-456",
+                "telegram"
+            )
+
+        handler._handle_telegram_response.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_handle_telegram_text_approve(self):
@@ -185,7 +181,6 @@ class TestBotHandler:
                 "user-456"
             )
             
-            # Should have called send_activity for processing message and result
             assert turn_context.send_activity.call_count >= 1
 
     @pytest.mark.asyncio
@@ -205,7 +200,6 @@ class TestBotHandler:
             "user-456"
         )
         
-        # Should have sent rejection message
         call_args = [str(c) for c in turn_context.send_activity.call_args_list]
         assert any("Elvettem" in str(c) or "törlés" in str(c) for c in call_args)
 
@@ -226,7 +220,6 @@ class TestBotHandler:
             "user-456"
         )
         
-        # Should have sent help message
         call_args = [str(c) for c in turn_context.send_activity.call_args_list]
         assert any("parancsokat" in str(c) or "help" in str(c).lower() for c in call_args)
 
@@ -263,7 +256,6 @@ class TestBotHandler:
                 "user-456"
             )
         
-        # Should have sent processing message
         turn_context.send_activity.assert_called()
 
     @pytest.mark.asyncio
@@ -285,7 +277,6 @@ class TestBotHandler:
             "user-456"
         )
         
-        # Should have sent rejection message
         call_args = [str(c) for c in turn_context.send_activity.call_args_list]
         assert any("Elvettem" in str(c) for c in call_args)
 
@@ -386,6 +377,5 @@ class TestBotHandlerEdgeCases:
                 "msteams"
             )
         
-        # Should have sent error message
         call_args = [str(c) for c in turn_context.send_activity.call_args_list]
         assert any("Hiba" in str(c) for c in call_args)

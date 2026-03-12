@@ -30,30 +30,23 @@ async def test_output_node_saves_to_document_store(output_state):
         
         result = await output_node(output_state)
         
-        # Verify PDF generation was called
         mock_generate_pdf.assert_called_once()
-        
-        # Verify Blob Storage upload was called
         mock_upload_pdf.assert_called_once()
-        
-        # Verify DocumentStore was instantiated and save was called
         mock_document_store_class.assert_called_once()
         mock_store_instance.save.assert_called_once()
         
-        # Verify the saved document structure
         saved_doc = mock_store_instance.save.call_args[0][0]
-        assert saved_doc["conversation_id"] == "conv-123"
-        assert saved_doc["user_id"] == "test-user"
-        assert saved_doc["title"] == "TWI Cím"
+        assert saved_doc["conversation_id"] == "conv-test-001"
+        assert saved_doc["user_id"] == "test-user-001"
+        assert saved_doc["title"] == "CÍM: CNC-01 gép napi beállítása"
         assert saved_doc["content_type"] == "twi"
         assert saved_doc["pdf_url"] == "https://fake.url/blob.pdf"
         assert saved_doc["status"] == "approved"
         assert saved_doc["llm_model"] == "test-model"
         assert saved_doc["revision_count"] == 1
         assert "document_id" in saved_doc
-        assert saved_doc["approved_by"] == "test-user"
+        assert saved_doc["approved_by"] == "test-user-001"
         
-        # Verify the returned state
         assert result["status"] == "completed"
         assert result["pdf_url"] == "https://fake.url/blob.pdf"
-        assert result["title"] == "TWI Cím"
+        assert result["title"] == "CÍM: CNC-01 gép napi beállítása"
