@@ -45,9 +45,9 @@ class MongoDBSaver(BaseCheckpointSaver):
     for persistent state management across container restarts and scale-out.
     """
 
-    def __init__(self) -> None:
+    def __init__(self, collection_name: str = "agent_state") -> None:
         """Initialize the MongoDB checkpointer."""
-        self.collection = _get_db()["agent_state"]
+        self.collection = _get_db()[collection_name]
     
     async def _ensure_indexes(self) -> None:
         """Create indexes for efficient checkpoint queries."""
