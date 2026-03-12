@@ -148,7 +148,7 @@ async def run_agent(
     user_id: str,
     conversation_id: str,
     channel: str = "msteams",
-    tenant_id: str = "poc-tenant",
+    tenant_id: str = "poc-tenant",  # TODO: pass per-request once multi-tenant
     resume_from: str | None = None,
     context: dict | None = None,
 ) -> dict:
