@@ -61,11 +61,11 @@ if ($rg -eq 'Succeeded') {
 Write-Section '3. Core Resources'
 
 $checks = @(
-    @{ Name='Container App Environment'; Cmd="az containerapp env show -n cae-$ProjectPrefix -g $ResourceGroup --query 'provisioningState' -o tsv" }
+    @{ Name='Container App Environment'; Cmd="az containerapp env show -n cae-$ProjectPrefix -g $ResourceGroup --query 'properties.provisioningState' -o tsv" }
     @{ Name='Container App (Backend)';   Cmd="az containerapp show -n ca-$ProjectPrefix-backend -g $ResourceGroup --query 'properties.provisioningState' -o tsv" }
     @{ Name='Azure AI Foundry';          Cmd="az cognitiveservices account show -n ai-$ProjectPrefix -g $ResourceGroup --query 'properties.provisioningState' -o tsv" }
     @{ Name='Cosmos DB Account';         Cmd="az cosmosdb show -n cosmos-$ProjectPrefix -g $ResourceGroup --query 'documentEndpoint' -o tsv" }
-    @{ Name='Storage Account';           Cmd="az storage account show -n $($ProjectPrefix -replace '-','') -g $ResourceGroup --query 'provisioningState' -o tsv" }
+    @{ Name='Storage Account';           Cmd="az storage account show -n st$($ProjectPrefix -replace '-','') -g $ResourceGroup --query 'provisioningState' -o tsv" }
     @{ Name='Key Vault';                 Cmd="az keyvault show -n kv-$ProjectPrefix -g $ResourceGroup --query 'properties.provisioningState' -o tsv" }
     @{ Name='Bot Service';               Cmd="az bot show -n bot-$ProjectPrefix -g $ResourceGroup --query 'name' -o tsv" }
     @{ Name='Application Insights';      Cmd="az monitor app-insights component show --app appi-$ProjectPrefix -g $ResourceGroup --query 'provisioningState' -o tsv" }
