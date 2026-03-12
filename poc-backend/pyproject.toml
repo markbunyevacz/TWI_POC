@@ -16,6 +16,7 @@ dependencies = [
     "langchain-core>=1.2.0",
     "langsmith>=0.7.0",
     "azure-identity>=1.25.0",
+    "azure-keyvault-secrets>=4.9.0",
     "azure-storage-blob>=12.28.0",
     "azure-ai-inference>=1.0.0b1,<2.0.0",
     "pymongo>=4.16.0",

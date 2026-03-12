@@ -26,7 +26,11 @@ def _get_db() -> AsyncIOMotorDatabase:
 
 class ConversationStore:
     def __init__(self) -> None:
-        self.collection = _get_db()["conversations"]
+        try:
+            self.collection = _get_db()["conversations"]
+        except RuntimeError:
+            logger.warning("Cosmos DB not configured — ConversationStore disabled.")
+            self.collection = None
 
     async def get_or_create(
         self,
@@ -35,6 +39,8 @@ class ConversationStore:
         channel: str,
         tenant_id: str = "poc-tenant",
     ) -> dict:
+        if self.collection is None:
+            return {}
         doc = await self.collection.find_one({"conversation_id": conversation_id})
         if doc:
             await self.collection.update_one(
@@ -62,9 +68,15 @@ class ConversationStore:
 
 class AuditStore:
     def __init__(self) -> None:
-        self.collection = _get_db()["audit_log"]
+        try:
+            self.collection = _get_db()["audit_log"]
+        except RuntimeError:
+            logger.warning("Cosmos DB not configured — AuditStore disabled.")
+            self.collection = None
 
     async def log(self, entry: dict) -> None:
+        if self.collection is None:
+            return
         entry["created_at"] = datetime.now(timezone.utc)
         await self.collection.insert_one(entry)
         logger.info("Audit log entry saved: conversation_id=%s", entry.get("conversation_id"))
@@ -72,9 +84,15 @@ class AuditStore:
 
 class DocumentStore:
     def __init__(self) -> None:
-        self.collection = _get_db()["generated_documents"]
+        try:
+            self.collection = _get_db()["generated_documents"]
+        except RuntimeError:
+            logger.warning("Cosmos DB not configured — DocumentStore disabled.")
+            self.collection = None
 
     async def save(self, doc: dict) -> dict:
+        if self.collection is None:
+            return doc
         doc["created_at"] = datetime.now(timezone.utc)
         await self.collection.insert_one(doc)
         return doc
