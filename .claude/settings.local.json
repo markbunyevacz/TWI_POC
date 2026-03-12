@@ -2,7 +2,22 @@
   "permissions": {
     "allow": [
       "Bash(git add poc-backend/app/agent/graph.py)",
-      "Bash(git commit:*)"
+      "Bash(git commit:*)",
+      "Bash(docker pull:*)",
+      "Bash(docker buildx:*)",
+      "Bash(git -C \"C:/Users/Admin/.cursor/TWI_POC\" diff HEAD -- .devcontainer/devcontainer.json \"poc-backend/.devcontainer/devcontainer.json\")",
+      "Bash(git -C \"C:/Users/Admin/.cursor/TWI_POC\" show HEAD:.devcontainer/devcontainer.json)",
+      "Bash(git -C \"C:/Users/Admin/.cursor/TWI_POC/.claude/worktrees/friendly-curran\" diff HEAD)",
+      "Bash(git -C \"C:/Users/Admin/.cursor/TWI_POC/.claude/worktrees/friendly-curran\" status)",
+      "Bash(git -C \"C:/Users/Admin/.cursor/TWI_POC/.claude/worktrees/friendly-curran\" log --oneline -5)",
+      "Bash(git -C \"C:/Users/Admin/.cursor/TWI_POC/.claude/worktrees/friendly-curran\" check-ignore -v .claude/settings.local.json)",
+      "Bash(git -C \"C:/Users/Admin/.cursor/TWI_POC/.claude/worktrees/friendly-curran\" log --oneline main..claude/friendly-curran)",
+      "Bash(git -C \"C:/Users/Admin/.cursor/TWI_POC\" status)",
+      "Bash(git -C \"C:/Users/Admin/.cursor/TWI_POC\" log --oneline -10)",
+      "Bash(git -C \"C:/Users/Admin/.cursor/TWI_POC\" branch -a)",
+      "Bash(git -C \"C:/Users/Admin/.cursor/TWI_POC\" worktree list)",
+      "Bash(git -C \"C:/Users/Admin/.cursor/TWI_POC/.claude/worktrees/friendly-curran\" log --oneline -10)",
+      "Bash(git -C \"C:/Users/Admin/.cursor/TWI_POC\" stash list)"
     ]
   }
 }
