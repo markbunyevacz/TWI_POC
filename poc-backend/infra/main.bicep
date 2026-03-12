@@ -12,9 +12,9 @@ param location string = 'swedencentral'
 @description('Project prefix for all resource names')
 param projectPrefix string = 'agentize-poc'
 
-@description('AI Foundry model — DataZoneStandard deployment, NOT GlobalStandard')
-@allowed(['mistral-large-latest', 'gpt-4o'])
-param aiModel string = 'mistral-large-latest'
+@description('AI Foundry model — DataZoneStandard deployment, NOT GlobalStandard. mistral-large-latest is deprecated; use gpt-4o or Mistral-medium-2505.')
+@allowed(['mistral-large-latest', 'gpt-4o', 'Mistral-medium-2505'])
+param aiModel string = 'gpt-4o'
 
 @description('Container App min replicas (1 = no cold start, ~$10/mo extra)')
 @minValue(0)
@@ -47,8 +47,10 @@ var storageAccountName = replace(replace('st${projectPrefix}', '-', ''), '_', ''
 // Built-in role: Key Vault Secrets User
 var kvSecretsUserRoleId = '4633458b-17de-408a-b874-0445c86b69e6'
 
-// Determine AI model format for AI Foundry deployment
+// Determine AI model format and version for AI Foundry deployment
+// Use az cognitiveservices account list-models -n ai-{prefix} -g {rg} to verify availability in your region
 var aiModelFormat = contains(aiModel, 'gpt') ? 'OpenAI' : 'MistralAI'
+var aiModelVersion = aiModel == 'gpt-4o' ? '2024-05-13' : (aiModel == 'Mistral-medium-2505' ? '1' : 'latest')
 
 // ─── Log Analytics Workspace ──────────────────────────────────────────────────
 
@@ -227,7 +229,7 @@ resource aiModelDeployment 'Microsoft.CognitiveServices/accounts/deployments@202
     model: {
       format: aiModelFormat
       name: aiModel
-      version: 'latest'
+      version: aiModelVersion
     }
   }
 }

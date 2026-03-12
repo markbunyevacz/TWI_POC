@@ -310,7 +310,7 @@ $envContent = @"
 # Azure AI Foundry
 AI_FOUNDRY_ENDPOINT=$aiFoundryInferenceEp
 AI_FOUNDRY_KEY=$aiFoundryKey
-AI_MODEL=mistral-large-latest
+AI_MODEL=gpt-4o
 AI_TEMPERATURE=0.3
 AI_MAX_TOKENS=4000
 
