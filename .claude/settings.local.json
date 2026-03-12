@@ -17,7 +17,10 @@
       "Bash(git -C \"C:/Users/Admin/.cursor/TWI_POC\" branch -a)",
       "Bash(git -C \"C:/Users/Admin/.cursor/TWI_POC\" worktree list)",
       "Bash(git -C \"C:/Users/Admin/.cursor/TWI_POC/.claude/worktrees/friendly-curran\" log --oneline -10)",
-      "Bash(git -C \"C:/Users/Admin/.cursor/TWI_POC\" stash list)"
+      "Bash(git -C \"C:/Users/Admin/.cursor/TWI_POC\" stash list)",
+      "Bash(git -C \"C:/Users/Admin/.cursor/TWI_POC\" checkout -b claude/fix-devcontainer-fallback)",
+      "Bash(git -C \"C:/Users/Admin/.cursor/TWI_POC\" add \".devcontainer/Dockerfile.fallback\" \".devcontainer/devcontainer.fallback.json\" \".devcontainer/README.md\" \".devcontainer/devcontainer-repair.ps1\" \"poc-backend/.devcontainer/Dockerfile.fallback\" \"poc-backend/.devcontainer/devcontainer.fallback.json\")",
+      "Bash(git -C \"C:/Users/Admin/.cursor/TWI_POC\" check-ignore -v \".devcontainer/Dockerfile.fallback\" \".devcontainer/README.md\" \".devcontainer/devcontainer.fallback.json\" \".devcontainer/devcontainer-repair.ps1\" \"poc-backend/.devcontainer/Dockerfile.fallback\" \"poc-backend/.devcontainer/devcontainer.fallback.json\")"
     ]
   }
 }
