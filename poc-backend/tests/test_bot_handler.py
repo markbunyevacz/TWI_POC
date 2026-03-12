@@ -290,6 +290,77 @@ class TestBotHandler:
         assert any("Elvettem" in str(c) for c in call_args)
 
 
+class TestRequestEditSource:
+    """Verify that request_edit from the approval card passes as_node='review'."""
+
+    @pytest.mark.asyncio
+    async def test_request_edit_from_approval_card_passes_as_node_review(self):
+        """Back-to-editing from approval card must route via after_review."""
+        from app.bot.bot_handler import AgentizeBotHandler
+
+        handler = AgentizeBotHandler()
+        handler._get_graph = AsyncMock(return_value=MagicMock())
+
+        turn_context = MagicMock()
+        turn_context.activity.channel_id = "msteams"
+        turn_context.send_activity = AsyncMock()
+
+        value = {
+            "action": "request_edit",
+            "source": "approval",
+            "draft": "test draft",
+            "metadata": {},
+            "feedback": "fix step 3",
+        }
+
+        with patch("app.bot.bot_handler.run_agent", new_callable=AsyncMock) as mock_run:
+            mock_run.return_value = {
+                "status": "review_needed",
+                "draft": "revised draft",
+                "draft_metadata": {"model": "gpt-4o", "generated_at": "now"},
+            }
+            await handler._handle_card_action(
+                turn_context, value, "conv-123", "user-456"
+            )
+
+            mock_run.assert_called_once()
+            _, kwargs = mock_run.call_args
+            assert kwargs["as_node"] == "review"
+
+    @pytest.mark.asyncio
+    async def test_request_edit_from_review_card_passes_as_node_none(self):
+        """Edit from the review card should NOT override as_node."""
+        from app.bot.bot_handler import AgentizeBotHandler
+
+        handler = AgentizeBotHandler()
+        handler._get_graph = AsyncMock(return_value=MagicMock())
+
+        turn_context = MagicMock()
+        turn_context.activity.channel_id = "msteams"
+        turn_context.send_activity = AsyncMock()
+
+        value = {
+            "action": "request_edit",
+            "draft": "test draft",
+            "metadata": {},
+            "feedback": "minor fix",
+        }
+
+        with patch("app.bot.bot_handler.run_agent", new_callable=AsyncMock) as mock_run:
+            mock_run.return_value = {
+                "status": "review_needed",
+                "draft": "revised draft",
+                "draft_metadata": {"model": "gpt-4o", "generated_at": "now"},
+            }
+            await handler._handle_card_action(
+                turn_context, value, "conv-123", "user-456"
+            )
+
+            mock_run.assert_called_once()
+            _, kwargs = mock_run.call_args
+            assert kwargs["as_node"] is None
+
+
 class TestBotHandlerEdgeCases:
     """Test edge cases and error handling."""
 

@@ -153,8 +153,17 @@ async def run_agent(
     tenant_id: str = "poc-tenant",  # TODO: pass per-request once multi-tenant
     resume_from: str | None = None,
     context: dict | None = None,
+    as_node: str | None = None,
 ) -> dict:
-    """Invoke or resume the LangGraph agent for a given conversation."""
+    """Invoke or resume the LangGraph agent for a given conversation.
+
+    Args:
+        as_node: Override the ``as_node`` argument passed to
+            ``graph.aupdate_state``.  When resuming from the *approval*
+            interrupt but routing back to revision, pass ``"review"`` so
+            LangGraph evaluates the ``after_review`` conditional edge
+            instead of following the static approve → output edge.
+    """
     config = {"configurable": {"thread_id": conversation_id}}
 
     if resume_from:
@@ -162,7 +171,7 @@ async def run_agent(
         # Update the existing checkpoint state, then resume from it.
         # Passing None to ainvoke tells LangGraph to continue from the
         # last interrupt rather than starting a new run.
-        await graph.aupdate_state(config, state_update)
+        await graph.aupdate_state(config, state_update, as_node=as_node)
         result = await graph.ainvoke(None, config)
     else:
         initial_state = AgentState(

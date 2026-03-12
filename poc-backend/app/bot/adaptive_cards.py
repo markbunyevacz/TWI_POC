@@ -131,6 +131,7 @@ def create_approval_card(draft: str, metadata: dict) -> dict:
                 "title": "↩️ Vissza a szerkesztéshez",
                 "data": {
                     "action": "request_edit",
+                    "source": "approval",
                     "draft": draft,
                     "metadata": metadata,
                 },

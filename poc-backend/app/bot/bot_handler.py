@@ -329,8 +329,13 @@ class AgentizeBotHandler(ActivityHandler):
                 await self._send_card(turn_context, card)
 
         elif action == "request_edit":
-            # Revision requested → resume graph with revision feedback
+            # Revision requested → resume graph with revision feedback.
+            # When the edit comes from the approval card, we must tell
+            # LangGraph to re-evaluate from the "review" node so the
+            # after_review conditional edge routes to "revise".
             feedback = value.get("feedback", "")
+            resume_as_node = "review" if value.get("source") == "approval" else None
+
             await turn_context.send_activity(
                 "⏳ Módosítom a szerkesztési kérésed alapján..."
             )
@@ -343,6 +348,7 @@ class AgentizeBotHandler(ActivityHandler):
                     conversation_id=conversation_id,
                     resume_from="revision",
                     context={"feedback": feedback},
+                    as_node=resume_as_node,
                 )
             except Exception as exc:  # noqa: BLE001
                 logger.error("Agent revision error: %s", exc, exc_info=True)
