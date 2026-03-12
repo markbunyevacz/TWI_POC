@@ -1,10 +1,14 @@
 # agentize.eu PoC — Implementation Specification
 
-**Version:** 1.1
-**Date:** 2026-03-12
-**Status:** Implemented
-**Original design spec:** `archive/poc_technical_spec.md` v1.0 (2026-02-26) [ARCHIVED]
-**Deployment guide:** `go_live_guide.md`
+| Field | Value |
+|---|---|
+| **Version** | 1.3 |
+| **Date** | 2026-03-12 |
+| **Status** | Implemented |
+| **Owner** | agentize.eu |
+| **Confidentiality** | Internal |
+| **Original design spec** | `archive/poc_technical_spec.md` v1.0 (2026-02-26) [ARCHIVED] |
+| **Deployment guide** | `go_live_guide.md` |
 
 ---
 
@@ -82,100 +86,215 @@ These decisions are locked and were agreed upon by the project team:
 
 ## 2. User Functionalities & Workflows
 
-### 2.1 Onboarding
+### 2.1 Business Context & Problem Statement
+
+**What is TWI?**
+
+Training Within Industry (TWI) is a structured methodology developed during World War II to rapidly train workers in manufacturing processes. A TWI Job Instruction (JI) sheet breaks down a task into numbered steps, with each step containing three elements: the *main step* (what to do), *key points* (how to do it right), and *reasons why* (why each key point matters). This three-column format has been adopted globally in automotive, aerospace, and precision manufacturing as the standard for work instruction documentation.
+
+**The current pain point**
+
+Manufacturing companies -- particularly in the automotive/DACH region -- produce TWI sheets manually. A process engineer observes a task, writes the steps, has a supervisor review them, formats the document, and distributes the PDF. This process takes 2-4 hours per instruction and is error-prone: steps are missed, safety warnings are incomplete, key points lack the "why" rationale, and formatting is inconsistent. When processes change, existing instructions must be rewritten from scratch.
+
+**What this system does**
+
+The agentize.eu AI platform replaces the manual drafting step with LLM-assisted generation. The user describes a manufacturing process in natural language (in Hungarian), and the system produces a structured TWI document following the standard 6-section format. A human expert reviews, revises if needed, and explicitly approves the content before a branded PDF is generated. The AI accelerates the drafting from hours to minutes; the human retains full authority over accuracy and completeness.
+
+**Why the approval workflow matters**
+
+EU AI Act (Article 50, effective February 2025) requires that AI-generated content is labeled as such and that a human is accountable for the final output. The dual-checkpoint approval workflow (draft review + final verification) satisfies this requirement while also matching the existing quality assurance culture in manufacturing: no document leaves the system without a named approver.
+
+### 2.2 Target Users & Personas
+
+| Persona | Role | Typical interaction | Frequency |
+|---|---|---|---|
+| **Process Engineer** | Creates new TWI sheets for new or changed manufacturing processes | Describes the process, reviews the AI draft for technical accuracy, requests revisions for missing steps or safety details, approves the final version | Weekly (during process changes or new product introductions) |
+| **Shop Floor Supervisor** | Validates that instructions are practical and match real workshop conditions | Reviews the draft for feasibility, checks that tool names and machine IDs are correct, may request language simplification | As needed (when new instructions arrive for their area) |
+| **Quality Manager** | Ensures compliance with internal standards and regulatory requirements | Verifies that safety sections are complete, checks that the quality control section meets audit requirements, gives final approval | Monthly (during batch reviews or audit preparation) |
+| **Training Coordinator** | Uses approved TWI sheets to onboard new operators | Does not generate instructions but consumes the PDF output; may request revisions to existing sheets via `edit_twi` intent | Quarterly (during onboarding cycles) |
+
+All users interact through Microsoft Teams (primary channel) in a personal chat with the bot. Telegram is available as a secondary channel with reduced functionality.
+
+### 2.3 Language & Locale
+
+- All bot interactions are in **Hungarian** (prompts, card labels, error messages, processing indicators)
+- The TWI system prompt enforces Hungarian output from the LLM with technical terms optionally given in English in parentheses -- e.g., *"hőmérséklet-szabályozó (thermostat)"*
+- The 6-section TWI headers use standard Hungarian manufacturing terminology: CIM, CEL, SZUKSEGES ANYAGOK ES ESZKOZOK, BIZTONSAGI ELOIRASOK, LEPESEK, MINOSEGI ELLENORZES
+- PDF output is in Hungarian with the EU AI Act footer in Hungarian: *"agentize.eu -- AI altal generalt tartalom"*
+- The Teams app manifest sets `defaultLanguageTag: "hu"` with an English localization file (`strings-en.json`) for command labels
+- No runtime language switching is supported in the PoC; adding a second locale would require touching bot handler messages, system prompts, and card templates
+
+### 2.4 Onboarding
 
 When a user adds the bot in Teams or Telegram, they receive a Welcome card introducing the AI assistant with an example prompt: *"Készíts egy TWI utasítást a CNC-01 gép beállításáról"*.
 
-### 2.2 Message Submission & Intent Classification
+### 2.5 Message Submission & Intent Classification
 
-The user sends a natural-language request. The bot responds with *"Feldolgozom a kérésedet..."* and the LangGraph agent classifies the intent at `temperature=0.1`:
+The user sends a natural-language request in the personal bot chat. There is no separate "start generation" button; the conversation is free-form. The bot responds with *"Feldolgozom a kérésedet..."* (a typing indicator in Teams) and the LangGraph agent classifies the intent at `temperature=0.1`:
 
-| Intent | Behaviour |
-|---|---|
-| `generate_twi` | New TWI work instruction generation |
-| `edit_twi` | Modify an existing TWI |
-| `question` | General Q&A (skips structured input processing) |
-| `unknown` | Clarification prompt sent back to user |
+| Intent | Behaviour | Example user message |
+|---|---|---|
+| `generate_twi` | New TWI work instruction generation | *"Készíts TWI utasítást a CNC-01 gép beállításáról"* |
+| `edit_twi` | Modify an existing TWI (requires a previous draft in the conversation) | *"Módosítsd a 3. lépést, adj hozzá hőmérséklet-ellenőrzést"* |
+| `question` | General Q&A -- the agent answers directly, skips structured processing | *"Mi a TWI módszertan?"* |
+| `unknown` | Clarification prompt sent back to user | *"Szia"* (greeting with no actionable content) |
 
-### 2.3 TWI Draft Generation
+**Business rule:** If the user message is ambiguous but contains a process description (tools, steps, materials), the classifier should favour `generate_twi` over `unknown`. The threshold for `unknown` is a message that contains no identifiable manufacturing process content.
 
-For `generate_twi` / `edit_twi`, the input is structured and sent to the LLM at `temperature=0.3` with a system prompt enforcing a 6-section TWI format:
+### 2.6 TWI Draft Generation
 
-1. **CIM** -- Title
-2. **CEL** -- Objective
-3. **SZUKSEGES ANYAGOK ES ESZKOZOK** -- Materials & Tools
-4. **BIZTONSAGI ELOIRASOK** -- Safety
-5. **LEPESEK** -- Steps (main step, key points, rationale for each)
-6. **MINOSEGI ELLENORZES** -- Quality check
+For `generate_twi` / `edit_twi`, the input is structured and sent to the LLM at `temperature=0.3` with a system prompt enforcing a 6-section TWI format. Each section has specific business expectations:
 
-The EU AI Act label is automatically prepended to every draft.
+| # | Section | Hungarian header | What the LLM must produce | Quality criteria |
+|---|---------|-----------------|--------------------------|-----------------|
+| 1 | **Title** | CIM | A concise, descriptive title identifying the process and equipment | Must include machine/workstation ID if mentioned by user |
+| 2 | **Objective** | CEL | One or two sentences explaining the purpose of the instruction | Must state the expected outcome, not just the action |
+| 3 | **Materials & Tools** | SZUKSEGES ANYAGOK ES ESZKOZOK | Bulleted list of required materials, tools, PPE, and consumables | Must include quantities or specifications when provided by the user |
+| 4 | **Safety Instructions** | BIZTONSAGI ELOIRASOK | Numbered safety precautions, hazard warnings, required PPE | Must cover electrical, chemical, and mechanical hazards relevant to the described process; must not be empty |
+| 5 | **Steps** | LEPESEK | Numbered main steps; each step has sub-items for *key points* and *reasons why* | Minimum 3 steps; each step must have at least one key point and one reason; steps must be in executable order |
+| 6 | **Quality Check** | MINOSEGI ELLENORZES | Verification criteria, tolerances, inspection points | Must include measurable pass/fail criteria when the process involves measurable outputs |
 
-### 2.4 Human-in-the-Loop #1: Draft Review
+**Business rules for generation:**
 
-The graph interrupts and sends the user a Review Adaptive Card containing:
+- The system prompt is in Hungarian and instructs the LLM to respond exclusively in Hungarian
+- Technical terms may optionally include the English equivalent in parentheses
+- The **LEPESEK** section follows the standard TWI Job Instruction three-column format: *FO LEPES* (main step), *FONTOS PONT* (key point), *INDOKLAS* (reason why)
+- If the user provides insufficient detail (e.g., only a title with no process description), the agent should still generate a best-effort draft but flag gaps explicitly in the output text (e.g., *"[Kérem pontosítsa a hőmérsékleti értékeket]"*)
+- For `edit_twi`, the previous draft is loaded from conversation state and the user's edit instructions are applied as a delta; the full 6-section structure is preserved
 
-- The draft text (truncated to 2,000 characters for Adaptive Card limits)
-- EU AI Act metadata line
-- An optional feedback text input field
+The EU AI Act label is automatically prepended to every draft: *"⚠️ AI által generált tartalom — emberi felülvizsgálat szükséges."*
+
+### 2.7 Human-in-the-Loop #1: Draft Review
+
+The graph interrupts (`interrupt_before=["review"]`) and sends the user a **Review Adaptive Card** containing:
+
+- The draft text (truncated to 2,000 characters for Adaptive Card rendering limits; full draft is retained in agent state)
+- EU AI Act metadata line with model name and generation timestamp
+- An optional feedback text input field (`Input.Text`, placeholder: *"Módosítási javaslatok..."*)
 - Three action buttons:
 
-| Action | Result |
-|---|---|
-| **Jovahagyom a vazlatot** | Moves to final approval |
-| **Szerkesztes kerem** | Enters revision loop with feedback |
-| **Elvetes** | Discards draft, ends flow |
+| Button label (HU) | Action ID | Result | Graph routing |
+|---|---|---|---|
+| **Jóváhagyom a vázlatot** | `approve` | Moves to final approval | `review` -> `approve` |
+| **Szerkesztés kérem** | `request_edit` | Enters revision loop with user feedback | `review` -> `revise` -> `generate` |
+| **Elvetés** | `reject` | Discards draft, logs rejection to audit, ends flow | `review` -> `reject` -> `audit` -> `END` |
 
-### 2.5 Revision Loop
+**Business rules for review:**
 
-When the user requests edits, their feedback is injected into the LLM prompt alongside the previous draft. The agent regenerates and presents a new Review card. This loop is hard-capped at 3 rounds -- after the third revision, the flow forces a move to final approval.
+- The reviewer is expected to check: (1) technical accuracy of steps and safety instructions, (2) completeness of materials list, (3) correct use of machine/tool identifiers, (4) appropriate level of detail for the target operator audience
+- If the user clicks **Szerkesztés kérem** without entering feedback text, the system re-prompts: *"Kérem, adja meg a módosítási javaslatait."* The revision cannot proceed with empty feedback.
+- If the user clicks **Elvetés**, the reason is optional; the `reject` node records `"user_rejected"` as the status in the audit trail regardless
 
-### 2.6 Human-in-the-Loop #2: Final Approval
+### 2.8 Revision Loop
 
-After the user approves the draft, a Final Approval card appears with an explicit verification message. This second checkpoint is mandatory per EU AI Act -- no PDF can be generated without it.
+When the user requests edits, their feedback text is injected into the LLM prompt alongside the previous draft. The system prompt instructs the LLM to treat the feedback as authoritative corrections -- the LLM must not argue with or ignore the feedback. The agent regenerates and presents a new Review card.
 
-| Action | Result |
-|---|---|
-| **Ellenoriztem es jovahagyom** | Triggers PDF generation |
-| **Vissza a szerkeszteshez** | Returns to revision loop |
+**Business rules for revisions:**
 
-### 2.7 PDF Generation & Delivery
+- The revision loop is hard-capped at **3 rounds** (`max_revision_count=3` in `AgentState`). After the third revision, the flow automatically advances to final approval. The user is informed: *"Elérted a maximális módosítási kört (3). A véglegesítéshez kérjük, hagyja jóvá."*
+- Each revision preserves the full 6-section structure; the LLM may not drop sections even if the feedback only addresses one section
+- The revision counter (`revision_count`) is tracked in agent state and persisted to the audit trail
+- If the Teams connection drops mid-revision (e.g., timeout), the graph state is persisted in the MongoDB checkpointer and can be resumed when the user next sends a message
 
-Upon final approval:
+### 2.9 Human-in-the-Loop #2: Final Approval
 
-1. Draft markdown is converted to HTML via Jinja2 template (A4 format, agentize.eu branding)
-2. HTML is rendered to PDF via WeasyPrint
-3. PDF is uploaded to Azure Blob Storage
-4. A 24-hour SAS URL is generated
-5. A Result Adaptive Card is sent with the download link
+After the user approves the draft, the graph interrupts again (`interrupt_before=["approve"]`) and a **Final Approval Adaptive Card** appears with an explicit verification message. This second checkpoint is mandatory per EU AI Act -- no PDF can be generated without it. The card displays:
 
-The PDF includes: header with title/date/model/version, EU AI Act warning box, full TWI content, approval box with approver name and timestamp, and a footer on every page: *"agentize.eu -- AI altal generalt tartalom -- {page}/{pages}"*.
+- A confirmation prompt: *"Ellenőrizted a tartalmat? A jóváhagyás után PDF generálás indul."*
+- The approver's display name (from Teams/Telegram context)
+- Timestamp of the approval request
 
-### 2.8 Audit Trail
+| Button label (HU) | Action ID | Result |
+|---|---|---|
+| **Ellenőriztem és jóváhagyom** | `final_approve` | Triggers PDF generation; records `approval_timestamp` in audit |
+| **Vissza a szerkesztéshez** | `back_to_edit` | Returns to revision loop (does not count against the 3-round cap) |
 
-After PDF delivery, the audit node logs to Cosmos DB (invisible to the user):
+**Business rule:** The `approval_timestamp` recorded in the audit trail is the moment the user clicks **Ellenőriztem és jóváhagyom**, not the moment the PDF is generated. This distinction matters for audit compliance -- the human decision timestamp is the legally binding one.
 
-- `user_id`, `tenant_id`, `channel`
-- `llm_model`, `llm_tokens_used`
-- `approval_timestamp` (ISO 8601 UTC)
-- `revision_count`, `pdf_blob_name`, `status`
+### 2.10 PDF Generation & Delivery
 
-### 2.9 Telegram Variant
+Upon final approval, the `output_node` executes the PDF pipeline:
 
-Since Telegram does not support Adaptive Cards, the bot formats the same workflow as markdown text messages with text-based commands (`Igen/Nem`, `Modositas`, `Elfogadas/Elutasitas`). On Telegram, the approval flow skips the second Adaptive Card and proceeds directly to PDF generation after the user explicitly approves via text.
+| Step | Action | Detail |
+|---|---|---|
+| 1 | **Markdown to HTML** | The approved draft markdown is rendered into an A4 HTML document using a Jinja2 template (`twi_template.html`) with agentize.eu branding, corporate colors, and structured section layout |
+| 2 | **HTML to PDF** | WeasyPrint converts the HTML to a PDF document with proper page breaks, headers, and footers |
+| 3 | **Upload to Blob** | The PDF is uploaded to Azure Blob Storage container `twi-documents` with blob name pattern: `{user_id}/{timestamp}_{sanitized_title}.pdf` |
+| 4 | **SAS URL generation** | A read-only SAS token is generated with a **24-hour expiry**; after expiry the link returns HTTP 403 |
+| 5 | **Result card** | A Result Adaptive Card is sent to the user containing the download link and a summary |
 
-### 2.10 Workflow Diagram
+**PDF layout specification:**
+
+- **Header block:** Title, generation date, LLM model name, document version, revision count
+- **EU AI Act warning box:** Yellow-background box at the top of the first page: *"⚠️ Ez a dokumentum AI által generált tartalmat tartalmaz. Az emberi felülvizsgálatot és jóváhagyást [approver_name] végezte [approval_timestamp] időpontban."*
+- **Body:** Full 6-section TWI content with numbered steps, sub-items for key points and reasons
+- **Approval box:** Green-bordered box showing approver display name, approval timestamp (ISO 8601), and revision count
+- **Footer (every page):** *"agentize.eu — AI által generált tartalom — {page}/{pages}"*
+
+**Business rules for PDF delivery:**
+
+- The PDF filename is deterministic and includes the user ID to enable per-user blob listing in future phases
+- The 24-hour SAS expiry is a PoC simplification; production would use shorter-lived tokens or Azure AD-authenticated access
+- If WeasyPrint fails (e.g., malformed HTML from unusual LLM output), the system logs the error and sends the user a plain-text fallback message with the approved draft content. The PDF failure does not void the approval.
+- The Result card includes a *"Letöltés"* (Download) button linking to the SAS URL and a metadata line showing the file size
+
+### 2.11 Audit Trail
+
+After PDF delivery (or after rejection), the `audit_node` logs a record to the Cosmos DB `audit_log` collection. This log is invisible to the user and exists for compliance and operational monitoring.
+
+| Field | Type | Description |
+|---|---|---|
+| `user_id` | string | Teams/Telegram user identifier |
+| `tenant_id` | string | Azure AD tenant ID (Teams) or bot instance ID (Telegram) |
+| `channel` | string | `"msteams"` or `"telegram"` |
+| `intent` | string | The classified intent (`generate_twi`, `edit_twi`, `question`) |
+| `llm_model` | string | Model used for generation (e.g., `"gpt-4o"`) |
+| `llm_tokens_input` | integer | Input tokens consumed |
+| `llm_tokens_output` | integer | Output tokens consumed |
+| `approval_timestamp` | string (ISO 8601 UTC) | When the user clicked the final approval button; `null` for rejections |
+| `revision_count` | integer | Number of revision rounds (0 if approved on first attempt) |
+| `pdf_blob_name` | string | Blob Storage path of the generated PDF; `null` for rejections |
+| `status` | string | `"approved"`, `"user_rejected"`, or `"error"` |
+| `created_at` | string (ISO 8601 UTC) | Timestamp of the audit record creation |
+
+**Business rationale:** The audit trail serves three purposes: (1) EU AI Act compliance evidence that a human approved the content, (2) cost tracking by recording token consumption per generation, and (3) operational analytics to identify patterns (e.g., high revision counts indicating unclear user inputs or poor LLM output quality).
+
+### 2.12 Telegram Variant
+
+Telegram does not support Adaptive Cards. The bot implements the same logical workflow using plain markdown text messages and text-based command keywords.
+
+**Mapping of Teams flow to Telegram:**
+
+| Workflow step | Teams (Adaptive Cards) | Telegram (text messages) |
+|---|---|---|
+| Welcome | Welcome card with example prompt | Plain text greeting with example prompt |
+| Processing indicator | *"Feldolgozom a kérésedet..."* | Same text message |
+| Draft review | Review card with buttons | Draft text + instruction: *"Válasz: Igen / Nem / Módosítás: [feedback]"* |
+| Revision request | Feedback text input on card | User sends *"Módosítás: [feedback text]"* as a message |
+| Final approval | Approval card with two buttons | Text prompt: *"Elfogadás / Elutasítás"* |
+| PDF delivery | Result card with download button | Text message with SAS URL hyperlink |
+
+**Telegram-specific limitations (PoC):**
+
+- **No second approval checkpoint:** The Telegram flow currently skips the `approve` interrupt and proceeds directly from draft approval to PDF generation. This is a known PoC simplification. For production, a text-based confirmation step should be added.
+- **No structured feedback parsing:** User feedback on Telegram is free-form text; there is no form validation. If the user sends an unrecognized keyword, the bot re-prompts.
+- **Message length limit:** Telegram messages are capped at 4,096 characters. Long drafts are split across multiple messages with a *"(folytatás...)"* indicator.
+- **No inline buttons:** The PoC uses keyword-based commands rather than Telegram inline keyboards. Adding inline buttons would improve UX but is out of scope.
+- **No file upload:** PDF is delivered as a download URL, not as a file attachment. Telegram supports file sending via the Bot API, but this is not implemented in the PoC.
+
+### 2.13 Workflow Diagram
 
 ```
 [User message]
      |
      v
- classify_intent --- unknown ---> "Kerlek pontositsd..." ---> END
+ classify_intent --- unknown ---> clarify ---> END
      |
      |-- generate_twi / edit_twi
      |         |
      |    process_input --> generate --> [INTERRUPT #1: Review Card]
      |                                       |          |           |
-     |                                  approve    request_edit   reject --> END
+     |                                  approve    request_edit   reject --> audit --> END
      |                                       |          |
      |                                       |     revise --> generate --> [Review Card]
      |                                       |               (max 3 rounds)
@@ -191,7 +310,7 @@ Since Telegram does not support Adaptive Cards, the bot formats the same workflo
      |-- question --> generate (Q&A) --> END
 ```
 
-### 2.11 EU AI Act Compliance Summary
+### 2.14 EU AI Act Compliance Summary
 
 | Requirement | Implementation |
 |---|---|
@@ -201,6 +320,36 @@ Since Telegram does not support Adaptive Cards, the bot formats the same workflo
 | Two approval checkpoints | `interrupt_before=["review", "approve"]` in graph compilation |
 | Audit trail | `audit_node` logs to `audit_log` collection with model, tokens, approval timestamp |
 | LLM temperature | Intent classification: 0.1; TWI generation: 0.3 |
+
+### 2.15 Error Handling & Edge Cases
+
+The system must handle the following scenarios gracefully without crashing or leaving the user in an unresponsive state:
+
+| Scenario | System behaviour | User-facing message (HU) |
+|---|---|---|
+| **LLM timeout** (>60s response) | Retry once; if still fails, abort generation and notify user | *"A generálás időtúllépés miatt megszakadt. Kérem, próbálja újra."* |
+| **LLM rate limit** (HTTP 429) | Exponential backoff (1s, 2s, 4s); max 3 retries; then abort | *"A rendszer jelenleg túlterhelt. Kérem, próbálja újra néhány perc múlva."* |
+| **Empty LLM output** | Treat as generation failure; do not present an empty review card | *"A generálás sikertelen volt. Kérem, próbálja újra részletesebb leírással."* |
+| **Malformed TWI sections** | If fewer than 6 sections are detected in the output, re-prompt the LLM once with explicit section enforcement | Same as empty output if retry fails |
+| **Blob Storage upload failure** | Retry once; if fails, send the approved markdown as plain text to the user | *"A PDF feltöltés sikertelen. Az alábbi szöveges változatot mentse el:"* |
+| **Cosmos DB write failure** (audit) | Log to Application Insights; do not block the user flow -- the PDF has already been delivered | No user-facing message (silent failure, logged) |
+| **Teams card action timeout** (user doesn't respond) | Graph state is persisted in MongoDB checkpointer; when the user sends any new message, the bot detects a pending graph and resumes | *"Folytatjuk az előző kérésedet..."* |
+| **Telegram unrecognized keyword** | Re-prompt with valid options | *"Kérem, válasszon: Igen / Nem / Módosítás: [megjegyzés]"* |
+| **User sends new message during active generation** | The new message is queued; the current generation completes first | *"Folyamatban van egy kérés feldolgozása. Kérem, várjon."* |
+
+### 2.16 Non-Functional Requirements (Business-Level)
+
+| Category | Requirement | PoC target | Production target (future) |
+|---|---|---|---|
+| **Response time** | Time from user message to review card delivery | < 30 seconds for typical process descriptions (5-15 sentences) | < 15 seconds |
+| **Availability** | System uptime during business hours (CET 08:00-18:00) | Best effort (single Container App instance) | 99.5% SLA with auto-scaling |
+| **Concurrent users** | Simultaneous active generation workflows | Up to 5 (PoC testing) | 50+ with horizontal scaling |
+| **Data residency** | All data stored within EU | Sweden Central region, VNET isolated | Same, with Private Link hardening |
+| **Token budget** | Maximum tokens per single TWI generation cycle (including revisions) | ~8,000 input + ~4,000 output per generation | Same, with cost alerting |
+| **PDF size** | Maximum generated PDF size | < 2 MB (typical: 100-300 KB for a 5-10 step instruction) | Same |
+| **SAS URL lifetime** | Download link validity period | 24 hours | Configurable (1-72 hours) |
+| **Audit retention** | How long audit records are kept | Indefinite (Cosmos DB serverless) | 7 years (regulatory minimum) |
+| **Language support** | Supported interaction languages | Hungarian only | Hungarian + English + German |
 
 ---
 
@@ -363,6 +512,8 @@ Secrets flow: Key Vault --> Container App secret refs (resolved at startup) --> 
 | Bot Service | Azure Bot Service (S1, global) | Routes Teams/Telegram to `/api/messages` |
 | Bot SDK | `botbuilder-core` 4.17+ | `BotFrameworkAdapter` + `AgentizeBotHandler` |
 | Teams UI | Adaptive Cards v1.4 | 4 card templates: Review, Approval, Result, Welcome |
+| Teams Manifest | `teams-app/manifest.json` (v1.17) | Sideload-ready; placeholders `{{BOT_APP_ID}}`, `{{BACKEND_FQDN}}` |
+| Teams Localization | `teams-app/strings-en.json` | English UI strings for command labels and descriptions |
 | Telegram | Markdown text messages | Fallback for non-card-capable channels |
 
 ### 4.6 Observability & CI/CD
@@ -372,7 +523,9 @@ Secrets flow: Key Vault --> Container App secret refs (resolved at startup) --> 
 | App Insights | Azure Monitor OpenTelemetry | Auto-configured at startup |
 | Log Analytics | Linked workspace | 30-day retention |
 | CI/CD | GitHub Actions + Docker Buildx | Build --> GHCR --> `az containerapp update` |
-| Dev Env | Devcontainer | Python 3.12 + Azure CLI + Docker-in-Docker |
+| Dev Env | Devcontainer (primary) | Python 3.12 + Azure CLI + Docker-outside-of-Docker |
+| Dev Env | Devcontainer (fallback) | `devcontainer.fallback.json` + `Dockerfile.fallback` for buildx-incompatible hosts |
+| Dev Env Repair | `devcontainer-repair.ps1` | PowerShell script to diagnose and fix Docker/buildx issues |
 
 ### 4.7 Summary
 
@@ -446,8 +599,9 @@ class AgentState(TypedDict):
 | `revise` | `nodes/revise.py` | Increments revision counter, sets feedback | No |
 | `approve` | `nodes/approve.py` | Human-in-the-loop checkpoint #2 | No |
 | `output` | `nodes/output.py` | PDF generation + Blob upload + DocumentStore save | No |
-| `audit` | `nodes/audit.py` | Writes audit log to Cosmos DB | No |
-| `clarify` | `graph.py` (inline) | Returns clarification-needed status for unknown intent | No |
+| `audit` | `nodes/audit.py` | Writes audit log to Cosmos DB (both happy and rejection paths) | No |
+| `reject` | `graph.py` | Finalises rejection state so audit receives a `twi_rejected` event | No |
+| `clarify` | `graph.py` | Returns `clarification_needed` status for unknown intent | No |
 
 ### 5.3 Conditional Edge Functions
 
@@ -468,15 +622,17 @@ def after_review(state: AgentState) -> str:
         return "approve"
     if status == "revision_requested":
         return "revise"
-    return END  # rejected
+    return "reject"  # rejected → reject node → audit → END
 
 def after_revision(state: AgentState) -> str:
     if state.get("revision_count", 0) >= 3:
-        return "approve"   # Force final approval after 3 rounds
-    return "regenerate"
+        return "approve"      # Force final approval after 3 rounds
+    return "regenerate"       # Maps to "generate" node via conditional edge map
 ```
 
 All routing functions are pure -- no side effects, no I/O.
+
+The `after_revision` function returns `"regenerate"` which the conditional edge map translates to the `generate` node: `{"regenerate": "generate", "approve": "approve"}`. This avoids a naming collision with the `generate` node on the intent routing path.
 
 ### 5.4 Graph Compilation
 
@@ -583,6 +739,29 @@ The handler extends `ActivityHandler` and routes incoming activities:
 2. **Telegram text** (channel is telegram, no card value) --> `_handle_telegram_text()`
 3. **Normal text** (all other cases) --> `_handle_text_message()` --> LangGraph `run_agent()`
 
+Class methods:
+
+| Method | Purpose |
+|---|---|
+| `__init__()` | Initialises conversation store; graph is lazy-loaded |
+| `_get_graph()` | Lazy singleton access to the compiled LangGraph graph |
+| `on_message_activity()` | Entry point for all incoming messages; dispatches to the three handlers above |
+| `on_members_added_activity()` | Sends Welcome card when bot is added to a conversation |
+| `_handle_text_message()` | Invokes `run_agent()`, sends Review card or error message |
+| `_handle_card_action()` | Routes Adaptive Card submit actions (see table below) |
+| `_handle_telegram_text()` | Parses Telegram text commands (`igen`, `nem`, `modositas`) and resumes graph |
+| `_handle_telegram_response()` | Formats LangGraph result as Telegram markdown text |
+| `_send_card()` | Static method; sends Adaptive Card on Teams or falls back to plain text on Telegram |
+
+Module-level Telegram helpers (not class methods):
+
+| Function | Purpose |
+|---|---|
+| `_is_telegram_channel(channel_id)` | Returns `True` if channel is Telegram |
+| `_format_telegram_review(draft, metadata)` | Formats draft as Telegram markdown with approve/edit/reject options |
+| `_format_telegram_approval(draft, metadata)` | Formats final approval prompt for Telegram |
+| `_format_telegram_result(pdf_url, title, metadata)` | Formats result with download link for Telegram |
+
 Card action routing:
 
 | `action` value | Behaviour |
@@ -590,7 +769,7 @@ Card action routing:
 | `approve_draft` | Teams: send Approval card. Telegram: directly resume to PDF output |
 | `request_edit` | Resume graph at `revision` with user feedback |
 | `final_approve` | Resume graph at `output`, generate PDF |
-| `reject` | Discard draft, inform user |
+| `reject` | Resume graph at `reject` node, which routes to audit, then inform user |
 
 ### 7.2 Adaptive Card Templates
 
@@ -730,6 +909,20 @@ Immutable event trail for EU AI Act compliance.
 | `created_at` | ISODate | Audit entry creation time |
 
 **Indexes:** `{ tenant_id: 1, created_at: -1 }`, `{ event_type: 1 }`.
+
+### 8.5 Pydantic Data Models
+
+Source: `poc-backend/app/models/`
+
+The `models` package provides validated Pydantic `BaseModel` classes that mirror the Cosmos DB collection schemas. They are used for type-safe construction and validation of documents before insertion.
+
+| Model | Source file | Maps to collection | Key exports |
+|---|---|---|---|
+| `Conversation` | `conversation.py` | `conversations` | `Conversation`, `ConversationCreate` |
+| `AuditEntry` | `audit_entry.py` | `audit_log` | `AuditEntry`, `AuditEventType` (Literal type) |
+| `TWIDocument` | `twi_document.py` | `generated_documents` | `TWIDocument` |
+
+`AuditEventType` is a `Literal["twi_generated", "twi_approved", "twi_rejected", "twi_revised"]` used to constrain the `event_type` field.
 
 ---
 
@@ -984,4 +1177,4 @@ Changes made during implementation versus `archive/poc_technical_spec.md` v1.0:
 ---
 
 *agentize.eu -- AI & Organizational Solutions*
-*Implementation Specification v1.1 -- 2026-03-12*
+*Implementation Specification v1.3 -- 2026-03-12*

@@ -1,6 +1,12 @@
 # Codebase Snapshot — agentize.eu TWI PoC
 
-> Generated: 2026-03-06
+| Field | Value |
+|---|---|
+| **Version** | 2.0 |
+| **Date** | 2026-03-12 |
+| **Status** | Reference |
+| **Owner** | agentize.eu |
+| **Confidentiality** | Internal |
 
 ---
 
@@ -9,9 +15,7 @@
 ```
 TWI_POC/
 ├── .claude/
-│   ├── settings.local.json                          [config]
-│   └── worktrees/
-│       └── eager-jackson/                           [other]
+│   └── settings.local.json                          [config]
 ├── .cursor/
 │   ├── rules/
 │   │   ├── azure-service-clients.mdc                [doc]
@@ -30,23 +34,32 @@ TWI_POC/
 │       └── agentize-poc-langgraph/
 │           └── SKILL.md                             [doc]
 ├── .devcontainer/
-│   └── devcontainer.json                            [config]
+│   ├── devcontainer.json                            [config]
+│   ├── devcontainer.fallback.json                   [config]
+│   ├── Dockerfile.fallback                          [config]
+│   ├── devcontainer-repair.ps1                      [tool]
+│   └── README.md                                    [doc]
 ├── .github/
 │   └── workflows/
 │       └── deploy.yml                               [config]
 ├── .gitignore                                       [config]
 ├── .flake8                                          [config]
 ├── .pre-commit-config.yaml                          [config]
+├── archive/
+│   ├── poc_technical_spec.md                        [archived]
+│   ├── poc_technical_spec.md.pdf                    [archived]
+│   ├── poc_vibe_coding_context.md                   [archived]
+│   ├── poc_vibe_coding_context.md.pdf               [archived]
+│   └── poc_implementation_specification.md          [archived]
 ├── agent_vendor_guide_v2.docx                       [doc]
 ├── codebase_snapshot.md                             [doc]
 ├── go_live_guide.md                                 [doc]
-├── poc_technical_spec.md                            [doc]
-├── poc_technical_spec.md.pdf                        [doc]
-├── poc_vibe_coding_context.md                       [doc]
-├── poc_vibe_coding_context.md.pdf                   [doc]
+├── specification.md                                 [doc]
 ├── poc-backend/
 │   ├── .devcontainer/
-│   │   └── devcontainer.json                        [config]
+│   │   ├── devcontainer.json                        [config]
+│   │   ├── devcontainer.fallback.json               [config]
+│   │   └── Dockerfile.fallback                      [config]
 │   ├── .env.example                                 [config]
 │   ├── Dockerfile                                   [config]
 │   ├── pyproject.toml                               [config]
@@ -59,6 +72,7 @@ TWI_POC/
 │   │   ├── agent/
 │   │   │   ├── __init__.py                          [code]
 │   │   │   ├── graph.py                             [code]
+│   │   │   ├── mongodb_checkpointer.py              [code]
 │   │   │   ├── state.py                             [code]
 │   │   │   ├── nodes/
 │   │   │   │   ├── __init__.py                      [code]
@@ -78,12 +92,14 @@ TWI_POC/
 │   │   │   ├── adaptive_cards.py                    [code]
 │   │   │   └── bot_handler.py                       [code]
 │   │   ├── models/
-│   │   │   └── __init__.py                          [code]
+│   │   │   ├── __init__.py                          [code]
+│   │   │   ├── audit_entry.py                       [code]
+│   │   │   ├── conversation.py                      [code]
+│   │   │   └── twi_document.py                      [code]
 │   │   ├── services/
 │   │   │   ├── __init__.py                          [code]
 │   │   │   ├── ai_foundry.py                        [code]
 │   │   │   ├── blob_storage.py                      [code]
-│   │   │   ├── checkpoint.py                        [code]
 │   │   │   ├── cosmos_db.py                         [code]
 │   │   │   └── key_vault.py                         [code]
 │   │   └── templates/
@@ -104,12 +120,14 @@ TWI_POC/
 │       ├── test_cosmos_db.py                        [code]
 │       ├── test_generation.py                       [code]
 │       ├── test_graph.py                            [code]
+│       ├── test_mongodb_checkpointer.py             [code]
 │       ├── test_output.py                           [code]
 │       └── test_pdf.py                              [code]
 └── teams-app/
     ├── manifest.json                                [config]
     ├── color.png                                    [other]
-    └── outline.png                                  [other]
+    ├── outline.png                                  [other]
+    └── strings-en.json                              [config]
 ```
 
 ---
@@ -123,8 +141,9 @@ TWI_POC/
 | LangChain Core | requirements.txt | `>=1.2.0` |
 | LangSmith | requirements.txt | `>=0.7.0` |
 | Azure AI Inference SDK | requirements.txt | `>=1.0.0b1,<2.0.0` |
-| Mistral Large (default model) | config.py, main.bicep | `gpt-4o` |
-| GPT-4o (alternative) | main.bicep | `gpt-4o` |
+| GPT-4o (default model) | config.py, main.bicep | `gpt-4o` |
+| Mistral Large 3 (alternative) | main.bicep | `Mistral-Large-3` |
+| Mistral Medium 2505 (alternative) | main.bicep | `Mistral-medium-2505` |
 
 ### Backend
 | Component | Source | Version Constraint |
@@ -159,7 +178,7 @@ TWI_POC/
 | Bicep (IaC) | main.bicep | Resource Group scope |
 | GitHub Actions CI/CD | deploy.yml | Build Docker -> GHCR -> Container App update |
 | Docker | Dockerfile | python:3.12-slim base |
-| Dev Containers | devcontainer.json (x2) | Python 3.12 + Azure CLI + Docker-in-Docker |
+| Dev Containers | devcontainer.json (x2) + fallbacks | Python 3.12 + Azure CLI + Docker-outside-of-Docker |
 
 ### Auth
 | Component | Source | Notes |
@@ -202,7 +221,7 @@ This system is an enterprise AI platform (PoC) built by agentize.eu that generat
 
 The core processing engine is a **LangGraph state machine** (`app/agent/graph.py`) implementing a multi-node workflow: intent classification -> input processing -> TWI document generation -> human-in-the-loop review -> optional revision loop (max 3 rounds) -> mandatory final approval -> PDF output -> audit logging. The graph uses **two human-in-the-loop interrupts** (`interrupt_before=["review", "approve"]`), pausing execution to collect user feedback via **Adaptive Cards** in Teams.
 
-The LLM integration goes through **Azure AI Foundry** (`app/services/ai_foundry.py`), calling Mistral Large (or GPT-4o) for intent classification (temperature=0.1) and TWI generation (temperature=0.3). Every AI-generated output is labelled with an EU AI Act compliance warning.
+The LLM integration goes through **Azure AI Foundry** (`app/services/ai_foundry.py`), calling GPT-4o (default) or Mistral Large 3 for intent classification (temperature=0.1) and TWI generation (temperature=0.3). Every AI-generated output is labelled with an EU AI Act compliance warning.
 
 Approved documents are rendered as **A4 PDFs** using a Jinja2 -> Markdown -> WeasyPrint pipeline (`app/agent/tools/pdf_generator.py`), uploaded to **Azure Blob Storage** with 24-hour SAS URLs, and metadata is persisted in **Cosmos DB** (MongoDB API) across four collections: `conversations`, `agent_state`, `generated_documents`, and `audit_log`.
 
@@ -229,9 +248,9 @@ The main entry point is `app/main.py` (FastAPI app), which exposes three routes:
 - **External deps:** `pydantic_settings`.
 
 #### `poc-backend/app/agent/graph.py`
-- **Purpose:** Defines and compiles the LangGraph state machine; provides `run_agent()` for invocation/resumption.
-- **Key functions:** `create_agent_graph()`, `get_graph()` (singleton), `run_agent()`, `_build_resume_state()`, `should_generate()`, `after_review()`, `after_revision()`, `clarify_node()`, `_create_checkpointer()`.
-- **External deps:** `langgraph.graph.StateGraph`, `langgraph.checkpoint.memory.MemorySaver`.
+- **Purpose:** Defines and compiles the LangGraph state machine (10 nodes); provides `run_agent()` for invocation/resumption.
+- **Key functions:** `create_agent_graph()`, `get_graph()` (singleton), `run_agent()`, `_build_resume_state()`, `should_generate()`, `after_review()`, `after_revision()`, `reject_node()`, `clarify_node()`, `_get_checkpointer()`.
+- **External deps:** `langgraph.graph.StateGraph`, `langgraph.checkpoint.memory.MemorySaver`, `app.agent.mongodb_checkpointer`.
 
 #### `poc-backend/app/agent/state.py`
 - **Purpose:** TypedDict definition for the LangGraph agent state schema.
@@ -284,9 +303,10 @@ The main entry point is `app/main.py` (FastAPI app), which exposes three routes:
 - **External deps:** `jinja2`, `weasyprint`, `markdown`.
 
 #### `poc-backend/app/bot/bot_handler.py`
-- **Purpose:** Bot Framework activity handler; routes text messages and Adaptive Card actions to LangGraph.
+- **Purpose:** Bot Framework activity handler; routes text messages, Adaptive Card actions, and Telegram text to LangGraph.
 - **Key classes:** `AgentizeBotHandler(ActivityHandler)`.
-- **Key methods:** `on_message_activity()`, `on_members_added_activity()`, `_handle_text_message()`, `_handle_card_action()`, `_send_card()` (with Telegram fallback), `_send_message()`, `_is_telegram()`.
+- **Key methods:** `on_message_activity()`, `on_members_added_activity()`, `_handle_text_message()`, `_handle_card_action()`, `_handle_telegram_text()`, `_handle_telegram_response()`, `_send_card()` (with Telegram fallback).
+- **Module-level helpers:** `_is_telegram_channel()`, `_format_telegram_review()`, `_format_telegram_approval()`, `_format_telegram_result()`.
 - **External deps:** `botbuilder.core`, `app.agent.graph.get_graph`/`run_agent`, `app.bot.adaptive_cards`, `app.services.cosmos_db.ConversationStore`.
 
 #### `poc-backend/app/bot/adaptive_cards.py`
@@ -315,11 +335,28 @@ The main entry point is `app/main.py` (FastAPI app), which exposes three routes:
 - **Key functions:** `get_secret(name)` -> secret value string, `_get_client()`.
 - **External deps:** `azure.identity.aio.DefaultAzureCredential`, `azure.keyvault.secrets.aio.SecretClient`.
 
-#### `poc-backend/app/services/checkpoint.py`
+#### `poc-backend/app/agent/mongodb_checkpointer.py`
 - **Purpose:** Cosmos DB (MongoDB API) backed LangGraph checkpointer replacing MemorySaver.
 - **Key classes:** `MongoDBSaver(BaseCheckpointSaver)`.
 - **Key methods:** `aget_tuple()`, `alist()`, `aput()`, `aput_writes()`, `ensure_indexes()`.
+- **Key factory:** `create_mongodb_checkpointer()` -- async factory used by `graph.py`.
 - **External deps:** `langgraph.checkpoint.base`, `langchain_core.runnables.RunnableConfig`, `app.services.cosmos_db._get_db`.
+
+#### `poc-backend/app/models/audit_entry.py`
+- **Purpose:** Pydantic model for the `audit_log` Cosmos DB collection.
+- **Key classes:** `AuditEntry(BaseModel)`.
+- **Key exports:** `AuditEntry`, `AuditEventType` (Literal type constraining event types).
+- **External deps:** `pydantic`.
+
+#### `poc-backend/app/models/conversation.py`
+- **Purpose:** Pydantic model for the `conversations` Cosmos DB collection.
+- **Key classes:** `Conversation(BaseModel)`, `ConversationCreate(BaseModel)`.
+- **External deps:** `pydantic`.
+
+#### `poc-backend/app/models/twi_document.py`
+- **Purpose:** Pydantic model for the `generated_documents` Cosmos DB collection.
+- **Key classes:** `TWIDocument(BaseModel)`.
+- **External deps:** `pydantic`.
 
 ### Infrastructure Code
 
@@ -364,11 +401,29 @@ The main entry point is `app/main.py` (FastAPI app), which exposes three routes:
 #### `teams-app/manifest.json`
 - **Purpose:** Microsoft Teams app manifest with placeholder tokens (`{{BOT_APP_ID}}`, `{{BACKEND_FQDN}}`).
 
+#### `teams-app/strings-en.json`
+- **Purpose:** English localization file for the Teams app manifest (command labels and descriptions).
+
 #### `.devcontainer/devcontainer.json` (root)
-- **Purpose:** VS Code Dev Container config for the full repo (Python 3.12, Azure CLI, Docker-in-Docker).
+- **Purpose:** VS Code Dev Container config for the full repo (Python 3.12, Azure CLI, Docker-outside-of-Docker).
+
+#### `.devcontainer/devcontainer.fallback.json` (root)
+- **Purpose:** Fallback devcontainer config using `Dockerfile.fallback` for hosts where the feature pipeline fails.
+
+#### `.devcontainer/Dockerfile.fallback` (root)
+- **Purpose:** Dockerfile for fallback devcontainer builds when Docker buildx features are unavailable.
+
+#### `.devcontainer/devcontainer-repair.ps1`
+- **Purpose:** PowerShell diagnostic and repair script for Docker/buildx issues in the dev container setup.
+
+#### `.devcontainer/README.md`
+- **Purpose:** Dev container troubleshooting guide (which config does what, smoke checks).
 
 #### `poc-backend/.devcontainer/devcontainer.json`
 - **Purpose:** VS Code Dev Container config for the backend subdirectory only.
+
+#### `poc-backend/.devcontainer/devcontainer.fallback.json`
+- **Purpose:** Fallback devcontainer config for the backend subdirectory.
 
 #### `.pre-commit-config.yaml`
 - **Purpose:** Pre-commit hooks configuration -- Gitleaks secret scanning only.
@@ -413,6 +468,10 @@ The main entry point is `app/main.py` (FastAPI app), which exposes three routes:
 - **Purpose:** Tests for PDF generation pipeline: title extraction, PDF byte output, HTML rendering, approval box, EU AI Act footer.
 - **Test count:** 11 test methods across 2 classes.
 
+#### `poc-backend/tests/test_mongodb_checkpointer.py`
+- **Purpose:** Unit tests for the MongoDBSaver checkpointer: factory function, index creation, put/get.
+- **External deps:** `app.agent.mongodb_checkpointer`.
+
 #### `poc-backend/tests/test_checkpoint_integration.py`
 - **Purpose:** Integration tests for MongoDBSaver (skipped unless COSMOS_CONNECTION is set): put/get round-trip, alist ordering, pending_writes.
 - **Test count:** 4 test functions (conditionally skipped).
@@ -450,7 +509,7 @@ The main entry point is `app/main.py` (FastAPI app), which exposes three routes:
 
 ### Structural Issues
 
-10. **`poc-backend/app/models/__init__.py`** -- Empty module. The `models/` package is never used anywhere in the codebase. This suggests an incomplete feature or premature directory creation.
+10. ~~**`poc-backend/app/models/__init__.py`** -- Empty module.~~ **RESOLVED.** The `models/` package now exports `AuditEntry`, `AuditEventType`, `Conversation`, `ConversationCreate`, `TWIDocument` as validated Pydantic models mapping to Cosmos DB collections.
 
 11. **`poc-backend/app/agent/tools/__init__.py`** -- Empty module. The `tools/` package only contains `pdf_generator.py`, which is more of a utility than a "tool" in the LangGraph sense (it is never registered as a LangGraph tool).
 
@@ -522,14 +581,14 @@ No gaps identified.
 ### Cosmos DB-backed LangGraph Checkpointer (not MemorySaver)
 **Status: IMPLEMENTED**
 
-`poc-backend/app/services/checkpoint.py` implements `MongoDBSaver(BaseCheckpointSaver)`:
+`poc-backend/app/agent/mongodb_checkpointer.py` implements `MongoDBSaver(BaseCheckpointSaver)`:
 - Full async implementation: `aget_tuple()`, `alist()`, `aput()`, `aput_writes()`
 - Compound unique index on `(thread_id, checkpoint_id)`
 - TTL index on `created_at` (default 30 days)
 - Upsert semantics for checkpoint persistence
 - Pending writes support
 
-`poc-backend/app/agent/graph.py:117-134` implements `_create_checkpointer()`:
+`poc-backend/app/agent/graph.py` implements `_get_checkpointer()`:
 - Uses `MongoDBSaver` when `settings.cosmos_connection` is configured
 - Falls back to `MemorySaver` when no connection string (local dev)
 - Graceful fallback with warning on MongoDBSaver init failure
@@ -591,7 +650,7 @@ The resume flow in `bot_handler.py` works as follows:
 
 **Gaps:**
 1. **Placeholder tokens not automated.** `{{BOT_APP_ID}}` and `{{BACKEND_FQDN}}` must be manually replaced before sideloading. Neither `deploy.ps1` nor `deploy.sh` perform this substitution. There is no manifest packaging step in the CI/CD pipeline.
-2. **No .zip packaging.** Teams requires the manifest to be uploaded as a .zip containing `manifest.json`, `color.png`, and `outline.png`. There is no build step or script to produce this .zip.
+2. **No .zip packaging.** Teams requires the manifest to be uploaded as a .zip containing `manifest.json`, `color.png`, `outline.png`, and `strings-en.json`. There is no build step or script to produce this .zip.
 3. **Missing `composeExtensions` or `messageExtensions`.** The bot only supports plain text input and Adaptive Card responses. There are no message extensions for rich input (e.g., task module for structured TWI parameters).
 4. **`supportsFiles: false`** -- The bot cannot receive file attachments from users, which could be useful for importing existing TWI documents or reference materials.
 5. **Privacy and Terms URLs** (`https://agentize.eu/privacy`, `https://agentize.eu/terms`) may not be live pages -- these are not validated in the codebase.

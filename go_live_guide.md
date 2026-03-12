@@ -1,5 +1,13 @@
 # Agentize.eu PoC — Deployment & Go-Live Guide
 
+| Field | Value |
+|---|---|
+| **Version** | 1.0 |
+| **Date** | 2026-03-12 |
+| **Status** | Active |
+| **Owner** | agentize.eu |
+| **Confidentiality** | Internal |
+
 This guide covers the exact steps required to deploy the PoC infrastructure, configure the application, set up the CI/CD pipeline, and run the system live in Microsoft Teams.
 
 ## Prerequisites
@@ -29,6 +37,8 @@ We have a PowerShell script that automates the Bicep deployment, creates the Ent
    .\deploy.ps1
    ```
    *Note: This process takes about 10-15 minutes, mostly because provisioning the AI Foundry model takes time.*
+
+   **Linux / CI alternative:** Use `./deploy.sh` instead of `deploy.ps1` for Bash environments. It performs the same 8 steps (App Registration, Resource Group, Bicep deploy, Key retrieval, KV RBAC, KV Secrets, Container App restart, `.env` generation).
 
 5. When the script finishes, it will print a **Summary** block. **Save these values**, especially the `Backend URL` and `Bot Endpoint`. It will also automatically generate a `.env` file in the `poc-backend/` folder for local development.
 
@@ -69,8 +79,10 @@ To use the bot in Teams, you need to package the Manifest file.
    - Replace `{{BACKEND_FQDN}}` with the backend URL from Step 1 (e.g., `ca-agentize-poc-backend.something.swedencentral.azurecontainerapps.io`). Do not include `https://`.
 3. Create a ZIP file containing:
    - `manifest.json`
-   - `color.png` (Included 192x192 logo)
-   - `outline.png` (Included 32x32 transparent logo)
+   - `color.png` (192x192 logo)
+   - `outline.png` (32x32 transparent logo)
+   - `strings-en.json` (English localization strings)
+
    *Make sure these files are at the root of the ZIP file, not inside a folder.*
 
 ---
@@ -84,7 +96,20 @@ To use the bot in Teams, you need to package the Manifest file.
 
 ---
 
-## Step 5: End-to-End Validation (The Demo)
+## Step 5: Post-Deployment Validation
+
+Before running the demo, verify the infrastructure is healthy:
+
+```powershell
+cd poc-backend/infra
+.\validate.ps1
+```
+
+This script runs 10 automated checks: Azure login, resource group, resource existence, AI model deployment, Key Vault secrets, Cosmos DB collections, Blob container, Container App health endpoint, Bot channels, and AI Foundry connectivity.
+
+---
+
+## Step 6: End-to-End Validation (The Demo)
 
 Now you can run the live demo!
 
