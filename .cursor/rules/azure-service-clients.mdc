@@ -10,7 +10,7 @@ alwaysApply: false
 Use `azure-ai-inference` (`ChatCompletionsClient`). Never call OpenAI SDK directly — all LLM traffic goes through AI Foundry endpoint.
 
 - Endpoint: Sweden Central only (`swedencentral.inference.ai.azure.com`)
-- Model: `mistral-large-latest` (default) or `gpt-4o`
+- Model: `gpt-4o` (default) or `Mistral-Large-3`
 - Always log input/output token counts for audit purposes
 
 ```python

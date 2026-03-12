@@ -9,7 +9,7 @@
       "value": "agentize-poc"
     },
     "aiModel": {
-      "value": "mistral-large-latest"
+      "value": "gpt-4o"
     },
     "minReplicas": {
       "value": 1

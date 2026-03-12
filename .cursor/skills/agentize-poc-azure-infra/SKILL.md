@@ -21,7 +21,7 @@ rg-agentize-poc-swedencentral
 ├── cae-agentize-poc          Container App Environment (VNET-integrated, internal)
 │   └── ca-agentize-poc-backend  (FastAPI, port 8000, external ingress for Bot Service)
 ├── ai-agentize-poc           Azure AI Foundry (AIServices kind)
-│   └── mistral-large-latest  Model deployment (DataZoneStandard, 10K TPM)
+│   └── gpt-4o               Model deployment (DataZoneStandard, 10K TPM)
 ├── cosmos-agentize-poc       Cosmos DB (MongoDB API, serverless)
 │   └── agentize-poc-db
 │       ├── conversations
@@ -42,7 +42,7 @@ rg-agentize-poc-swedencentral
 ```bicep
 param location string = 'swedencentral'   // NEVER change for PoC
 param projectPrefix string = 'agentize-poc'
-param aiModel string = 'mistral-large-latest'   // allowed: 'gpt-4o'
+param aiModel string = 'gpt-4o'   // allowed: 'Mistral-Large-3', 'Mistral-medium-2505'
 param minReplicas int = 1                 // 1 = no cold start (~$10/mo)
 param cosmosThroughputMode string = 'serverless'
 param botAppId string                     // from Entra ID App Registration
@@ -82,7 +82,7 @@ resource aiFoundry 'Microsoft.CognitiveServices/accounts@2024-04-01-preview' = {
 
 resource aiDeployment 'Microsoft.CognitiveServices/accounts/deployments@2024-04-01-preview' = {
   sku: { name: 'DataZoneStandard', capacity: 10 }  // NOT 'GlobalStandard'
-  properties: { model: { format: 'MistralAI', name: aiModel, version: 'latest' } }
+  properties: { model: { format: 'OpenAI', name: aiModel, version: '2024-08-06' } }
 }
 ```
 

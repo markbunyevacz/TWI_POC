@@ -135,7 +135,7 @@ async def call_llm(prompt, system_prompt=None, temperature=None, max_tokens=None
 
     response = client.complete(
         messages=messages,
-        model=settings.ai_model,          # "mistral-large-latest"
+        model=settings.ai_model,          # "gpt-4o"
         temperature=temperature or 0.3,
         max_tokens=max_tokens or 4000,
     )

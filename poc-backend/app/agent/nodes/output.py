@@ -38,7 +38,7 @@ async def output_node(state: AgentState) -> AgentState:
                 "draft_content": state["draft"],
                 "pdf_blob_name": blob_name,
                 "pdf_url": pdf_url,
-                "llm_model": state.get("draft_metadata", {}).get("model", "mistral-large-latest"),
+                "llm_model": state.get("draft_metadata", {}).get("model", "gpt-4o"),
                 "revision_count": state.get("revision_count", 0),
                 "status": "approved",
                 "approved_at": state.get("approval_timestamp") or datetime.now(timezone.utc).isoformat(),

@@ -162,7 +162,7 @@ LangGraph Agent Graph
 5. LangGraph Generation Node → AI Foundry API:
    POST https://<endpoint>.swedencentral.inference.ai.azure.com/chat/completions
    {
-     "model": "mistral-large-latest",
+     "model": "gpt-4o",
      "messages": [
        {"role": "system", "content": "<TWI system prompt>"},
        {"role": "user", "content": "Készíts egy TWI utasítást..."}
@@ -225,8 +225,8 @@ param location string = 'swedencentral'
 param projectPrefix string = 'agentize-poc'
 
 @description('AI Foundry model')
-@allowed(['mistral-large-latest', 'gpt-4o'])
-param aiModel string = 'mistral-large-latest'
+@allowed(['gpt-4o', 'gpt-4o'])
+param aiModel string = 'gpt-4o'
 
 @description('Container App min replicas (1 = no cold start)')
 param minReplicas int = 1
@@ -636,7 +636,7 @@ class Settings(BaseSettings):
     # Azure AI Foundry
     ai_foundry_endpoint: str
     ai_foundry_key: str
-    ai_model: str = "mistral-large-latest"
+    ai_model: str = "gpt-4o"
     ai_temperature: float = 0.3
     ai_max_tokens: int = 4000
 
@@ -1496,7 +1496,7 @@ def create_welcome_card() -> dict:
   "draft_content": "...",                   // Utolsó jóváhagyott szöveg
   "pdf_blob_name": "twi/conv-123/abc.pdf",
   "pdf_url": "https://...",
-  "llm_model": "mistral-large-latest",
+  "llm_model": "gpt-4o",
   "revision_count": 1,
   "status": "approved" | "draft" | "rejected",
   "created_at": ISODate,
@@ -1516,7 +1516,7 @@ def create_welcome_card() -> dict:
   "channel": "msteams",
   "event_type": "twi_generated" | "twi_approved" | "twi_rejected" | "twi_revised",
   "intent": "generate_twi",
-  "llm_model": "mistral-large-latest",
+  "llm_model": "gpt-4o",
   "llm_tokens_input": 1250,
   "llm_tokens_output": 2800,
   "revision_count": 1,
@@ -2008,7 +2008,7 @@ jobs:
 # Azure AI Foundry
 AI_FOUNDRY_ENDPOINT=https://ai-agentize-poc.swedencentral.inference.ai.azure.com
 AI_FOUNDRY_KEY=<from Key Vault>
-AI_MODEL=mistral-large-latest
+AI_MODEL=gpt-4o
 AI_TEMPERATURE=0.3
 AI_MAX_TOKENS=4000
 

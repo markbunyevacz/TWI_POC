@@ -89,26 +89,26 @@ Write-Section '4. AI Foundry Model Deployment'
 $modelDeployment = az cognitiveservices account deployment show `
     --name "ai-$ProjectPrefix" `
     --resource-group $ResourceGroup `
-    --deployment-name 'mistral-large-latest' `
+    --deployment-name 'gpt-4o' `
     --query '{state:properties.provisioningState, sku:sku.name}' `
     -o json 2>$null | ConvertFrom-Json
 
 if ($modelDeployment -and $modelDeployment.state -eq 'Succeeded') {
-    Write-Pass "Mistral Large — Deployed (SKU: $($modelDeployment.sku))"
+    Write-Pass "GPT-4o — Deployed (SKU: $($modelDeployment.sku))"
     if ($modelDeployment.sku -eq 'DataZoneStandard') {
         Write-Pass 'DataZoneStandard SKU confirmed — EU data residency guaranteed'
     } else {
         Write-Warn "SKU is $($modelDeployment.sku) — expected DataZoneStandard for EU compliance!"
     }
 } else {
-    # Try GPT-4o if Mistral not found
-    $gptDeployment = az cognitiveservices account deployment show `
+    # Try Mistral-Large-3 as fallback
+    $mistralDeployment = az cognitiveservices account deployment show `
         --name "ai-$ProjectPrefix" `
         --resource-group $ResourceGroup `
-        --deployment-name 'gpt-4o' `
+        --deployment-name 'Mistral-Large-3' `
         --query 'properties.provisioningState' -o tsv 2>$null
-    if ($gptDeployment -eq 'Succeeded') {
-        Write-Pass 'GPT-4o deployment found'
+    if ($mistralDeployment -eq 'Succeeded') {
+        Write-Pass 'Mistral-Large-3 deployment found'
     } else {
         Write-Fail 'No model deployment found — check AI Foundry capacity in Sweden Central'
         Write-Info 'Fallback option: Germany West Central'

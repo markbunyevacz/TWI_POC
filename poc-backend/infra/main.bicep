@@ -12,8 +12,8 @@ param location string = 'swedencentral'
 @description('Project prefix for all resource names')
 param projectPrefix string = 'agentize-poc'
 
-@description('AI Foundry model — DataZoneStandard deployment, NOT GlobalStandard. mistral-large-latest is deprecated; use gpt-4o or Mistral-medium-2505.')
-@allowed(['mistral-large-latest', 'gpt-4o', 'Mistral-medium-2505'])
+@description('AI Foundry model — DataZoneStandard deployment, NOT GlobalStandard')
+@allowed(['gpt-4o', 'Mistral-Large-3', 'Mistral-medium-2505'])
 param aiModel string = 'gpt-4o'
 
 @description('Container App min replicas (1 = no cold start, ~$10/mo extra)')
@@ -50,7 +50,7 @@ var kvSecretsUserRoleId = '4633458b-17de-408a-b874-0445c86b69e6'
 // Determine AI model format and version for AI Foundry deployment
 // Use az cognitiveservices account list-models -n ai-{prefix} -g {rg} to verify availability in your region
 var aiModelFormat = contains(aiModel, 'gpt') ? 'OpenAI' : 'MistralAI'
-var aiModelVersion = aiModel == 'gpt-4o' ? '2024-05-13' : (aiModel == 'Mistral-medium-2505' ? '1' : 'latest')
+var aiModelVersion = contains(aiModel, 'gpt') ? '2024-08-06' : '1'
 
 // ─── Log Analytics Workspace ──────────────────────────────────────────────────
 

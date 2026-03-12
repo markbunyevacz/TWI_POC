@@ -123,7 +123,7 @@ TWI_POC/
 | LangChain Core | requirements.txt | `>=1.2.0` |
 | LangSmith | requirements.txt | `>=0.7.0` |
 | Azure AI Inference SDK | requirements.txt | `>=1.0.0b1,<2.0.0` |
-| Mistral Large (default model) | config.py, main.bicep | `mistral-large-latest` |
+| Mistral Large (default model) | config.py, main.bicep | `gpt-4o` |
 | GPT-4o (alternative) | main.bicep | `gpt-4o` |
 
 ### Backend
@@ -430,7 +430,7 @@ The main entry point is `app/main.py` (FastAPI app), which exposes three routes:
 
 1. **`poc-backend/app/agent/tools/pdf_generator.py:10`** -- `FileSystemLoader("app/templates")` uses a relative path. This works when the CWD is `/app` inside Docker, but will break if the application is launched from any other directory (e.g., during development or testing from the project root).
 
-2. **`poc-backend/app/config.py:8`** -- `ai_model: str = "mistral-large-latest"` is the default model. The same string appears in `generate.py:77`, `main.bicep:17`, `parameters.example.json:12`, etc. A single source of truth would be better.
+2. **`poc-backend/app/config.py:8`** -- `ai_model: str = "gpt-4o"` is the default model. The same string appears in `generate.py:77`, `main.bicep:17`, `parameters.example.json:12`, etc. A single source of truth would be better.
 
 3. **`poc-backend/app/bot/bot_handler.py:47`** -- Hungarian error messages are hardcoded throughout bot_handler.py (lines 47, 91-95, 101, 113-116, 121-123, 139-141, 145-148, 153, 182-184, 199-201, 207-209, 219, 231, 246-248, 254-256, 264-266, 281-283). There is no i18n/localization framework -- adding a second language would require touching dozens of lines.
 

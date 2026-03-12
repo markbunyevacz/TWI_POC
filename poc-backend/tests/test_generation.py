@@ -181,7 +181,7 @@ class TestAdaptiveCards:
 
         card = create_review_card(
             draft="⚠️ AI által generált tartalom — emberi felülvizsgálat szükséges.",
-            metadata={"model": "mistral-large-latest", "generated_at": "2026-02-26"},
+            metadata={"model": "gpt-4o", "generated_at": "2026-02-26"},
         )
         assert "AI által generált tartalom" in str(card)
 
@@ -215,7 +215,7 @@ class TestAdaptiveCards:
         card = create_result_card(
             pdf_url="https://example.com/test.pdf",
             document_title="CNC-01 TWI",
-            metadata={"model": "mistral-large-latest"},
+            metadata={"model": "gpt-4o"},
         )
         action = card["actions"][0]
         assert action["type"] == "Action.OpenUrl"

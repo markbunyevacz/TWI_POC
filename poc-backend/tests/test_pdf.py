@@ -23,7 +23,7 @@ _SAMPLE_CONTENT = (
 )
 
 _METADATA = {
-    "model": "mistral-large-latest",
+    "model": "gpt-4o",
     "generated_at": "2026-02-26 10:00 UTC",
     "revision": 0,
 }
@@ -133,7 +133,7 @@ class TestGenerateTwiPdf:
 
         assert captured, "HTML was never passed to WeasyPrint"
         rendered = captured[0]
-        assert "mistral-large-latest" in rendered
+        assert "gpt-4o" in rendered
         assert "2026-02-26 10:00 UTC" in rendered
 
     @pytest.mark.asyncio

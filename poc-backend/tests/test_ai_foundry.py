@@ -33,7 +33,7 @@ class TestAIFoundryService:
                 with patch("app.services.ai_foundry.settings") as mock_settings:
                     mock_settings.ai_foundry_endpoint = "https://test.openai.azure.com"
                     mock_settings.ai_foundry_key = "test-key"
-                    mock_settings.ai_model = "mistral-large-latest"
+                    mock_settings.ai_model = "gpt-4o"
                     mock_settings.ai_temperature = 0.3
                     mock_settings.ai_max_tokens = 4000
                     
