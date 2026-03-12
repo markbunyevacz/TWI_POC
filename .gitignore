@@ -64,3 +64,6 @@ temp/
 
 # Debug artifacts
 poc-backend/infra/error.txt
+
+# Editor/AI
+.claude/
