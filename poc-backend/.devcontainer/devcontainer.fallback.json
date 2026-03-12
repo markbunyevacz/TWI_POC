@@ -1,15 +1,15 @@
 {
-  "name": "agentize.eu PoC Environment (repo root)",
-  "image": "mcr.microsoft.com/devcontainers/python:3.12",
-  "features": {
-    "ghcr.io/devcontainers/features/azure-cli:1": {},
-    "ghcr.io/devcontainers/features/docker-outside-of-docker:1": {}
+  "name": "agentize-poc (backend fallback local image)",
+  "build": {
+    "dockerfile": "Dockerfile.fallback"
   },
-  "forwardPorts": [8000, 27017],
+  "forwardPorts": [8000],
   "remoteUser": "root",
   "containerEnv": {
-    "DEVCONTAINER_SCOPE": "root"
+    "DEVCONTAINER_SCOPE": "backend",
+    "DEVCONTAINER_MODE": "fallback"
   },
+  "postCreateCommand": "pip install -r requirements.txt && pip install -e .[dev]",
   "customizations": {
     "vscode": {
       "settings": {
@@ -21,13 +21,12 @@
       },
       "extensions": [
         "ms-python.python",
-        "ms-python.vscode-pylance",
+        "ms-python.pylance",
         "ms-azuretools.vscode-docker",
         "ms-vscode.azure-account",
         "ms-azuretools.vscode-bicep",
         "TeamsDevApp.ms-teams-vscode-extension"
       ]
     }
-  },
-  "postCreateCommand": "pip install -r poc-backend/requirements.txt && pip install -e poc-backend/[dev]"
+  }
 }

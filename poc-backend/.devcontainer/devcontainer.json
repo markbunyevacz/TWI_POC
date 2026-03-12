@@ -1,20 +1,33 @@
 {
-  "name": "agentize-poc",
+  "name": "agentize-poc (backend root)",
   "image": "mcr.microsoft.com/devcontainers/python:3.12",
   "features": {
     "ghcr.io/devcontainers/features/azure-cli:1": {},
     "ghcr.io/devcontainers/features/docker-outside-of-docker:1": {}
   },
-  "postCreateCommand": "pip install -r requirements.txt",
+  "forwardPorts": [8000],
+  "remoteUser": "root",
+  "containerEnv": {
+    "DEVCONTAINER_SCOPE": "backend"
+  },
+  "postCreateCommand": "pip install -r requirements.txt && pip install -e .[dev]",
   "customizations": {
     "vscode": {
       "extensions": [
         "ms-python.python",
-        "ms-python.pylint",
+        "ms-python.pylance",
+        "ms-azuretools.vscode-docker",
+        "ms-vscode.azure-account",
         "ms-azuretools.vscode-bicep",
-        "ms-azuretools.vscode-azureresourcegroups"
-      ]
+        "TeamsDevApp.ms-teams-vscode-extension"
+      ],
+      "settings": {
+        "python.defaultInterpreterPath": "/usr/local/bin/python",
+        "python.formatting.provider": "black",
+        "python.linting.enabled": true,
+        "python.linting.flake8Enabled": true,
+        "editor.formatOnSave": true
+      }
     }
-  },
-  "forwardPorts": [8000]
+  }
 }
