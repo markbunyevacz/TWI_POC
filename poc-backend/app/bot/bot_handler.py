@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 
 def _is_telegram_channel(channel_id: str) -> bool:
     """Check if the channel is Telegram."""
-    return channel_id and channel_id.lower() == "telegram"
+    return bool(channel_id and channel_id.lower() == "telegram")
 
 
 def _format_telegram_review(draft: str, metadata: dict) -> str:
