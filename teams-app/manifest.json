@@ -45,5 +45,14 @@
     }
   ],
   "permissions": ["identity", "messageTeamMembers"],
-  "validDomains": ["{{BACKEND_FQDN}}"]
+  "validDomains": ["{{BACKEND_FQDN}}"],
+  "localizationInfo": {
+    "defaultLanguageTag": "hu",
+    "additionalLanguages": [
+      {
+        "languageTag": "en",
+        "file": "strings-en.json"
+      }
+    ]
+  }
 }

@@ -4,7 +4,6 @@
     "name.full": "agentize.eu Enterprise AI Platform",
     "description.short": "AI work instruction generator",
     "description.full": "Enterprise AI platform for generating manufacturing work instructions (TWI). GDPR-compliant, running in EU data centers.",
-    "staticTabs[0].name": "Home",
     "bots[0].commandLists[0].commands[0].title": "New TWI",
     "bots[0].commandLists[0].commands[0].description": "Generate a new work instruction",
     "bots[0].commandLists[0].commands[1].title": "Help",

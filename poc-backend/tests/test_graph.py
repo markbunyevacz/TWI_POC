@@ -9,8 +9,10 @@ from app.agent.graph import (
     after_revision,
     create_agent_graph,
     run_agent,
+    reject_node,
     _build_resume_state,
 )
+from app.agent.nodes.audit import _resolve_event_type
 from langgraph.graph import END
 
 
@@ -35,8 +37,7 @@ def _make_state(**overrides) -> dict:
         "pdf_url": None,
         "pdf_blob_name": None,
         "llm_model": None,
-        "llm_tokens_input": None,
-        "llm_tokens_output": None,
+        "llm_tokens_used": None,
         "approval_timestamp": None,
         "messages": [],
     }
@@ -72,11 +73,11 @@ class TestAfterReview:
     def test_revision_requested_routes_to_revise(self):
         assert after_review({"status": "revision_requested"}) == "revise"
 
-    def test_rejected_routes_to_end(self):
-        assert after_review({"status": "rejected"}) == END
+    def test_rejected_routes_to_reject(self):
+        assert after_review({"status": "rejected"}) == "reject"
 
-    def test_unknown_status_routes_to_end(self):
-        assert after_review({"status": "something_else"}) == END
+    def test_unknown_status_routes_to_reject(self):
+        assert after_review({"status": "something_else"}) == "reject"
 
 
 class TestAfterRevision:
@@ -91,6 +92,40 @@ class TestAfterRevision:
 
     def test_zero_revisions_routes_to_regenerate(self):
         assert after_revision({"revision_count": 0}) == "regenerate"
+
+
+# ---------------------------------------------------------------------------
+# Audit event_type resolution
+# ---------------------------------------------------------------------------
+
+
+class TestResolveEventType:
+    def test_completed_maps_to_twi_generated(self):
+        assert _resolve_event_type("completed") == "twi_generated"
+
+    def test_approved_maps_to_twi_approved(self):
+        assert _resolve_event_type("approved") == "twi_approved"
+
+    def test_rejected_maps_to_twi_rejected(self):
+        assert _resolve_event_type("rejected") == "twi_rejected"
+
+    def test_revision_requested_maps_to_twi_revised(self):
+        assert _resolve_event_type("revision_requested") == "twi_revised"
+
+    def test_unknown_status_defaults_to_twi_generated(self):
+        assert _resolve_event_type("processing") == "twi_generated"
+
+
+# ---------------------------------------------------------------------------
+# Reject node
+# ---------------------------------------------------------------------------
+
+
+class TestRejectNode:
+    @pytest.mark.asyncio
+    async def test_sets_rejected_status(self):
+        result = await reject_node(_make_state(status="approved"))
+        assert result["status"] == "rejected"
 
 
 # ---------------------------------------------------------------------------

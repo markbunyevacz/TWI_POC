@@ -46,6 +46,16 @@ The `after_revision` conditional enforces **max 3 revision rounds** before forci
 ## Routing Functions
 Conditional edge functions (`should_generate`, `after_review`, `after_revision`) must be pure functions — no side effects, no I/O. They only read state and return a node name string.
 
+## Audit Event Types
+The audit node derives `event_type` from `state["status"]` via `_resolve_event_type()`. Both the happy path (`output → audit`) and the rejection path (`reject → audit`) converge on the same audit node.
+
+| Status              | event_type       |
+|---------------------|------------------|
+| `"completed"`       | `twi_generated`  |
+| `"approved"`        | `twi_approved`   |
+| `"rejected"`        | `twi_rejected`   |
+| `"revision_requested"` | `twi_revised` |
+
 ## Checkpointer
 - `MongoDBSaver` (Cosmos DB) when `COSMOS_CONNECTION` is configured
 - Automatic fallback to `MemorySaver` (in-memory) if Cosmos DB is unavailable

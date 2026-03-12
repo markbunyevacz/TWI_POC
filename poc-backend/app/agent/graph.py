@@ -59,7 +59,7 @@ def after_review(state: AgentState) -> str:
         return "approve"
     if status == "revision_requested":
         return "revise"
-    return END  # rejected
+    return "reject"
 
 
 def after_revision(state: AgentState) -> str:
@@ -67,6 +67,11 @@ def after_revision(state: AgentState) -> str:
     if state.get("revision_count", 0) >= 3:
         return "approve"   # Force final approval after max revisions
     return "regenerate"
+
+
+async def reject_node(state: AgentState) -> AgentState:
+    """Finalise rejection state so audit_node logs a twi_rejected event."""
+    return {**state, "status": "rejected"}
 
 
 async def clarify_node(state: AgentState) -> AgentState:
@@ -90,6 +95,7 @@ async def create_agent_graph():
     builder.add_node("approve", approve_node)
     builder.add_node("output", output_node)
     builder.add_node("audit", audit_node)
+    builder.add_node("reject", reject_node)
     builder.add_node("clarify", clarify_node)
 
     builder.set_entry_point("classify_intent")
@@ -111,7 +117,7 @@ async def create_agent_graph():
         {
             "approve": "approve",
             "revise": "revise",
-            END: END,
+            "reject": "reject",
         },
     )
 
@@ -126,6 +132,7 @@ async def create_agent_graph():
 
     builder.add_edge("approve", "output")
     builder.add_edge("output", "audit")
+    builder.add_edge("reject", "audit")
     builder.add_edge("audit", END)
     builder.add_edge("clarify", END)
 
