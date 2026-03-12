@@ -37,7 +37,7 @@ param botAppPassword string
 param telegramBotToken string = ''
 
 @description('Container image reference — override for specific tag post-build')
-param containerImage string = 'ghcr.io/agentize-eu/poc-backend:latest'
+param containerImage string = 'mcr.microsoft.com/azuredocs/containerapps-helloworld:latest'
 
 // ─── Variables ────────────────────────────────────────────────────────────────
 
@@ -273,7 +273,7 @@ resource conversationsCol 'Microsoft.DocumentDB/databaseAccounts/mongodbDatabase
         { key: { keys: ['_id'] } }
         { key: { keys: ['conversation_id'] }, options: { unique: true } }
         { key: { keys: ['tenant_id', 'user_id'] } }
-        { key: { keys: ['last_activity'] }, options: { expireAfterSeconds: 7776000 } }
+        { key: { keys: ['_ts'] }, options: { expireAfterSeconds: 7776000 } }
       ]
     }
     options: {}
