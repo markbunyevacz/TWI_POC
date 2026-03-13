@@ -16,8 +16,8 @@ RUN groupadd --gid 1000 appuser && \
 
 WORKDIR /app
 
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+COPY requirements.lock requirements.txt ./
+RUN pip install --no-cache-dir -r requirements.lock
 
 COPY app/ ./app/
 

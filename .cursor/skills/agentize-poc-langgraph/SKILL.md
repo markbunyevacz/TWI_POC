@@ -28,7 +28,8 @@ class AgentState(TypedDict):
     pdf_blob_name: Optional[str]
 
     llm_model: Optional[str]
-    llm_tokens_used: Optional[int]
+    llm_tokens_input: Optional[int]
+    llm_tokens_output: Optional[int]
     approval_timestamp: Optional[str]
     messages: list[Any]
 ```
@@ -43,8 +44,8 @@ classify_intent
 
 review (INTERRUPT #1)
   ├── approved          → approve (INTERRUPT #2) → output → audit → END
-  ├── revision_requested → revise → generate → review  (max 3 loops)
-  └── rejected                                           → END
+  ├── revision_requested → revise (audit: twi_revised) → generate → review  (max 3 loops)
+  └── rejected          → reject → audit (twi_rejected) → END
 ```
 
 ## Graph Compilation
@@ -52,7 +53,7 @@ review (INTERRUPT #1)
 ```python
 async def create_agent_graph():
     builder = StateGraph(AgentState)
-    # Add all 9 nodes...
+    # Add all 10 nodes (including reject)...
     checkpointer = await _get_checkpointer()  # MongoDB or MemorySaver fallback
     return builder.compile(
         checkpointer=checkpointer,
@@ -110,6 +111,7 @@ Card submit resumes graph with `status = "approved" | "revision_requested" | "re
 
 ### revise_node
 Increments `revision_count`. Passes feedback back into generate cycle.
+Logs an inline `twi_revised` audit event via `AuditStore` (failure does not block the flow).
 After 3 revisions, `after_revision()` edge forces move to `approve`.
 
 ### approve_node (INTERRUPT)
@@ -121,12 +123,16 @@ Card submit resumes with `status = "approved"` + `approval_timestamp`.
 2. `upload_pdf(bytes, blob_name)` → SAS URL (24h)
 3. Sets `pdf_url`, `pdf_blob_name`, `status = "completed"`
 
+### reject_node (inline in `graph.py`)
+Sets `status = "rejected"` and routes to `audit_node` so rejection events are logged.
+
 ### clarify_node (inline in `graph.py`)
 Returns `status = "clarification_needed"` for unknown intents. Minimal placeholder — flow ends immediately after.
 
 ### audit_node
+Derives `event_type` from state status (`completed` → `twi_generated`, `rejected` → `twi_rejected`).
 Saves to Cosmos DB `audit_log` collection:
-`conversation_id, user_id, tenant_id, channel, intent, llm_model, llm_tokens_used, revision_count, pdf_blob_name, status, approval_timestamp`.
+`conversation_id, user_id, tenant_id, channel, event_type, intent, llm_model, llm_tokens_input, llm_tokens_output, revision_count, pdf_blob_name, status, approval_timestamp`.
 
 ## AI Foundry LLM Call
 
@@ -140,8 +146,8 @@ async def call_llm(
     system_prompt: str | None = None,
     temperature: float | None = None,
     max_tokens: int | None = None,
-) -> tuple[str, int]:
-    """Returns (response_text, total_tokens_used)."""
+) -> tuple[str, int, int]:
+    """Returns (response_text, prompt_tokens, completion_tokens)."""
     messages = []
     if system_prompt:
         messages.append({"role": "system", "content": system_prompt})
@@ -154,8 +160,8 @@ async def call_llm(
         max_tokens=max_tokens or 4000,
     )
     content = response.choices[0].message.content
-    tokens = response.usage.total_tokens
-    return content, tokens
+    usage = response.usage
+    return content, usage.prompt_tokens, usage.completion_tokens
 ```
 
 ## TWI Generation Prompt Structure
@@ -197,3 +203,7 @@ Key test scenarios:
 - Draft generation includes EU AI Act label
 - Revision loop increments count and incorporates feedback
 - PDF bytes non-empty and valid PDF header
+- Audit event_type derived correctly for completed / rejected states
+- Split token counts (llm_tokens_input, llm_tokens_output) written to audit log
+- Revision audit inline log fires twi_revised event
+- Audit failure does not block the user flow

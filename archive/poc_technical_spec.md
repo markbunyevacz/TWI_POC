@@ -616,6 +616,7 @@ motor==3.6.*                    # Async MongoDB driver
 # PDF generation
 jinja2==3.1.*
 weasyprint==63.*                # HTML → PDF
+markdown==3.7.*                 # Markdown → HTML for PDF pipeline
 
 # Config & utils
 pydantic==2.10.*

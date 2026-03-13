@@ -125,6 +125,7 @@ async def create_agent_graph():
             "reject": "reject",
         },
     )
+    builder.add_edge("reject", "audit")
 
     builder.add_conditional_edges(
         "revise",
@@ -202,7 +203,8 @@ async def run_agent(
             pdf_url=None,
             pdf_blob_name=None,
             llm_model=None,
-            llm_tokens_used=None,
+            llm_tokens_input=None,
+            llm_tokens_output=None,
             approval_timestamp=None,
             messages=[],
         )

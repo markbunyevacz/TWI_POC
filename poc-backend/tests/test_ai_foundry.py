@@ -63,8 +63,8 @@ class TestCallLlm:
     """Tests for the call_llm async function."""
 
     @pytest.mark.asyncio
-    async def test_returns_content_and_tokens(self):
-        """Successful call returns (content_str, total_tokens)."""
+    async def test_returns_content_and_split_tokens(self):
+        """Successful call returns (content_str, prompt_tokens, completion_tokens)."""
         mock_response = MagicMock()
         mock_response.choices = [MagicMock()]
         mock_response.choices[0].message.content = "Generated TWI content"
@@ -87,7 +87,7 @@ class TestCallLlm:
 
             result = await call_llm("Test prompt")
 
-        assert result == ("Generated TWI content", 150)
+        assert result == ("Generated TWI content", 50, 100)
         mock_client.complete.assert_called_once()
 
     @pytest.mark.asyncio
