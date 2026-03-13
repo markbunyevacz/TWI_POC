@@ -40,7 +40,7 @@ Teams / Telegram
 4. **Intent node** classifies: `generate_twi | edit_twi | question | unknown`
 5. **Generate node** → AI Foundry (Mistral Large, temp=0.3) → draft + AI label
 6. **Review checkpoint** (INTERRUPT) → Adaptive Card sent to user
-7. User approves/edits → Bot handler resumes graph with `resume_from`
+7. User approves/edits → Bot handler resumes graph with `resume_from` + `as_node`
 8. **Final approval checkpoint** (INTERRUPT) → second confirmation
 9. **Output node** → WeasyPrint PDF → Blob Storage → SAS URL (24h)
 10. **Audit node** → Cosmos DB log entry

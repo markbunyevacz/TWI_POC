@@ -2,8 +2,8 @@
 
 | Field | Value |
 |---|---|
-| **Version** | 1.3 |
-| **Date** | 2026-03-12 |
+| **Version** | 1.4 |
+| **Date** | 2026-03-13 |
 | **Status** | Implemented |
 | **Owner** | agentize.eu |
 | **Confidentiality** | Internal |
@@ -661,15 +661,21 @@ When the graph hits an interrupt point (`review` or `approve`), the bot handler 
 
 ```python
 # 1. Patch the existing state with the user's action
-await graph.aupdate_state(config, state_update)
+await graph.aupdate_state(config, state_update, as_node=as_node)
 
 # 2. Resume execution from the last interrupt
 result = await graph.ainvoke(None, config)
 ```
 
+**CRITICAL:** Every `aupdate_state` call must pass `as_node` so LangGraph evaluates the outgoing conditional edge instead of re-running the interrupted node (which would overwrite the patched status).
+
 Resume state patches are built by `_build_resume_state()`:
-- `resume_from="revision"` sets `status="revision_requested"` + `revision_feedback`
-- `resume_from="output"` sets `status="approved"` + `approval_timestamp`
+
+| `resume_from` | State patch | `as_node` | Routing |
+|---|---|---|---|
+| `"revision"` | `status="revision_requested"` + `revision_feedback` | `"review"` | `after_review` → `revise` → `generate` |
+| `"output"` | `status="approved"` + `approval_timestamp` | `"approve"` | Skips interrupt → `output` → `audit` → END |
+| `"rejection"` | `status="rejected"` | `"review"` | `after_review` → `reject` → `audit` → END |
 
 ---
 
@@ -764,12 +770,12 @@ Module-level Telegram helpers (not class methods):
 
 Card action routing:
 
-| `action` value | Behaviour |
-|---|---|
-| `approve_draft` | Teams: send Approval card. Telegram: directly resume to PDF output |
-| `request_edit` | Resume graph at `revision` with user feedback |
-| `final_approve` | Resume graph at `output`, generate PDF |
-| `reject` | Resume graph at `reject` node, which routes to audit, then inform user |
+| `action` value | Behaviour | `as_node` |
+|---|---|---|
+| `approve_draft` | Teams: send Approval card. Telegram: directly resume to PDF output | — / `"approve"` |
+| `request_edit` | Resume graph at `revision` with user feedback | `"review"` (always) |
+| `final_approve` | Resume graph at `output`, generate PDF | `"approve"` |
+| `reject` | Resume graph at `reject` node, which routes to audit, then inform user | `"review"` |
 
 ### 7.2 Adaptive Card Templates
 
@@ -1200,4 +1206,4 @@ The original spec (`poc_technical_spec.md` v1.0) pinned dependencies with `==x.y
 ---
 
 *agentize.eu -- AI & Organizational Solutions*
-*Implementation Specification v1.3 -- 2026-03-12*
+*Implementation Specification v1.4 -- 2026-03-13*

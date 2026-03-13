@@ -2,8 +2,8 @@
 
 | Field | Value |
 |---|---|
-| **Version** | 2.0 |
-| **Date** | 2026-03-12 |
+| **Version** | 2.1 |
+| **Date** | 2026-03-13 |
 | **Status** | Reference |
 | **Owner** | agentize.eu |
 | **Confidentiality** | Internal |
@@ -114,6 +114,7 @@ TWI_POC/
 │       ├── __init__.py                              [code]
 │       ├── conftest.py                              [code]
 │       ├── test_ai_foundry.py                       [code]
+│       ├── test_audit.py                            [code]
 │       ├── test_blob_storage.py                     [code]
 │       ├── test_bot_handler.py                      [code]
 │       ├── test_checkpoint_integration.py           [code]
@@ -294,7 +295,7 @@ The main entry point is `app/main.py` (FastAPI app), which exposes three routes:
 
 #### `poc-backend/app/agent/nodes/audit.py`
 - **Purpose:** Writes immutable audit log entry to Cosmos DB for EU AI Act compliance.
-- **Key functions:** `audit_node(state)` -- logs event to `audit_log` collection.
+- **Key functions:** `audit_node(state)` -- logs event to `audit_log` collection; `_resolve_event_type(status)` -- maps agent status to audit event type.
 - **External deps:** `app.services.cosmos_db.AuditStore`.
 
 #### `poc-backend/app/agent/tools/pdf_generator.py`
@@ -437,12 +438,12 @@ The main entry point is `app/main.py` (FastAPI app), which exposes three routes:
 - **Purpose:** Shared pytest fixtures: `mock_llm_response`, `sample_agent_state`, `sample_draft`.
 
 #### `poc-backend/tests/test_graph.py`
-- **Purpose:** Tests for LangGraph routing functions, resume state builder, graph compilation, intent node, and revise node.
-- **Test count:** 17 test methods across 6 classes.
+- **Purpose:** Tests for LangGraph routing functions, audit event type resolution, resume state builder, graph compilation, intent node, revise node, and reject node.
+- **Test count:** 24 test methods across 9 classes.
 
 #### `poc-backend/tests/test_bot_handler.py`
-- **Purpose:** Tests for AgentizeBotHandler: text message handling, card action routing, error handling, Telegram fallback, welcome card.
-- **Test count:** 22 test methods across 5 classes.
+- **Purpose:** Tests for AgentizeBotHandler: text message handling, card action routing (including `as_node` verification for all resume paths), error handling, Telegram fallback, welcome card.
+- **Test count:** 19 test methods across 7 classes.
 
 #### `poc-backend/tests/test_generation.py`
 - **Purpose:** Tests for TWI generation node (EU AI Act label, revision context, metadata, temperature), intent temperature, process_input node, and Adaptive Card structure.
@@ -451,6 +452,10 @@ The main entry point is `app/main.py` (FastAPI app), which exposes three routes:
 #### `poc-backend/tests/test_ai_foundry.py`
 - **Purpose:** Tests for the AI Foundry service client (call_llm): response parsing, system prompt, temperature/max_tokens.
 - **Test count:** 4 test methods.
+
+#### `poc-backend/tests/test_audit.py`
+- **Purpose:** Tests for audit_node event_type derivation, split token fields (input/output), failure safety, and revise_node inline audit logging.
+- **Test count:** 7 test methods across 4 classes.
 
 #### `poc-backend/tests/test_blob_storage.py`
 - **Purpose:** Tests for Blob Storage upload_pdf: SAS URL generation, missing account_key error.
@@ -597,22 +602,23 @@ No gaps identified.
 
 ---
 
-### LangGraph Resume Bug in bot_handler.py
-**Status: PARTIAL -- potential bug identified**
+### LangGraph Resume Pattern in bot_handler.py
+**Status: FIXED (2026-03-13)**
 
 The resume flow in `bot_handler.py` works as follows:
 1. `_handle_card_action()` receives a card submission with `action` field
-2. For `"request_edit"` (line 179): calls `run_agent(resume_from="revision", context={"feedback": feedback})`
-3. For `"final_approve"` (line 228): calls `run_agent(resume_from="output", context={"timestamp": timestamp})`
-4. `run_agent()` in `graph.py:158-164`: calls `graph.aupdate_state()` then `graph.ainvoke(None, config)`
+2. For `"request_edit"`: calls `run_agent(resume_from="revision", context={"feedback": feedback}, as_node="review")`
+3. For `"final_approve"`: calls `run_agent(resume_from="output", context={"timestamp": timestamp}, as_node="approve")`
+4. For `"reject"`: calls `run_agent(resume_from="rejection", as_node="review")`
+5. `run_agent()` in `graph.py`: calls `graph.aupdate_state(config, state_update, as_node=as_node)` then `graph.ainvoke(None, config)`
 
-**Potential bugs / concerns:**
+**Key invariant:** Every `aupdate_state` call passes `as_node` so LangGraph evaluates the outgoing conditional edge directly instead of re-running the interrupted node. Without `as_node`, `review_node` would re-execute and overwrite `status` back to `"review_needed"`, breaking the revision loop.
 
-1. **Resume targets do not match interrupt points.** The graph is configured with `interrupt_before=["review", "approve"]` (graph.py:113). When the graph pauses before `review`, the next expected nodes are determined by the `after_review` conditional edge. However, `_build_resume_state("revision")` sets `status="revision_requested"`, which causes `after_review` to route to `"revise"`. This is correct. But for `_build_resume_state("output")` setting `status="approved"`, `after_review` routes to `"approve"` -- which then hits the second interrupt (`interrupt_before=["approve"]`). The graph will pause *again* before `approve`, requiring yet another resume. This means a single "final_approve" card action may not actually reach the `output` node.
+**Previously fixed bug (2026-03-13):** The `request_edit` handler originally passed `as_node=None` when the edit came from the review card (only the approval card case passed `as_node="review"`). This caused `review_node` to reset the status, preventing the revision loop from triggering. The fix was to always pass `as_node="review"` for all `request_edit` actions.
 
-2. **Line 80-99: `aget_state` guard.** When the graph has a paused state (line 83: `existing.next` is truthy), the bot sends a Hungarian warning and returns without processing. This is correct behavior for preventing duplicate runs. However, after a reject action (line 280-285), the graph state still has checkpointed data -- but the reject flow simply sends a text message without clearing/resetting the graph state. A subsequent message from the same conversation may incorrectly trigger the "already paused" warning even though the user intends to start fresh.
+**Remaining notes:**
 
-3. **Draft passed via card data vs. graph state.** The `request_edit` action at line 181 reads `feedback` from `value.get("feedback")`, but the original draft is passed through the card's `data` payload (not read from graph state). The resume path in `run_agent()` only updates `revision_feedback` in the state, while the generate node at `generate.py:51-56` reads `state.get("revision_feedback")` and `state.get("draft")`. The draft should already be in the checkpoint, but the feedback from the card's Input.Text field may not be propagated correctly if the card's `data.feedback` key differs from the Input.Text `id` -- in this case, the Input.Text has `id="feedback"` (adaptive_cards.py:52) which overwrites the card action's `data` dict, so it should work. This is fragile coupling.
+1. **Draft passed via card data vs. graph state.** The `request_edit` action reads `feedback` from `value.get("feedback")`, but the original draft is passed through the card's `data` payload (not read from graph state). The resume path in `run_agent()` only updates `revision_feedback` in the state, while the generate node reads `state.get("revision_feedback")` and `state.get("draft")`. The draft is already in the checkpoint. The feedback from the card's `Input.Text` field (with `id="feedback"`) is merged into the action data payload by Adaptive Cards, so it works correctly -- but the coupling is fragile.
 
 ---
 

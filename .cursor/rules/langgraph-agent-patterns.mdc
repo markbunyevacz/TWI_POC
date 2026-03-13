@@ -30,15 +30,21 @@ async def my_node(state: AgentState) -> AgentState:
 Human-in-the-loop checkpoints are `interrupt_before=["review", "approve"]`. Never add new interrupt points without updating `bot_handler.py` to resume accordingly.
 
 ## Resuming After Interrupt
-Always use `_build_resume_state()` to construct the state update before resuming:
+Always use `_build_resume_state()` to construct the state update before resuming.
+
+**CRITICAL:** Every resume call MUST pass the correct `as_node` so LangGraph evaluates the outgoing conditional edge instead of re-running the interrupted node. Without `as_node`, the interrupted node re-executes and overwrites the patched status.
 
 ```python
-# resume_from="revision"  → sets status + revision_feedback
-# resume_from="output"    → sets status="approved" + approval_timestamp
-# resume_from="rejection" → sets status="rejected"
+# resume_from="revision"  → status + revision_feedback, as_node="review"
+# resume_from="output"    → status="approved" + approval_timestamp, as_node="approve"
+# resume_from="rejection" → status="rejected", as_node="review"
 ```
 
-When resuming at `final_approve`, pass `as_node="approve"` so the graph skips the second interrupt and continues to `output → audit → END`. When resuming at `reject`, pass `as_node="review"` so `after_review` routes to `reject → audit → END`.
+| Resume point | `as_node` | Why |
+|---|---|---|
+| `revision` | `"review"` | `after_review` evaluates directly → routes to `revise` |
+| `output` (final approve) | `"approve"` | Skips second interrupt → continues to `output → audit → END` |
+| `rejection` | `"review"` | `after_review` routes to `reject → audit → END` |
 
 ## Revision Loop Limit
 The `after_revision` conditional enforces **max 3 revision rounds** before forcing approval. Keep this guard in place.

@@ -16,12 +16,14 @@ Never mix these paths.
 ## Adaptive Card Actions
 All `Action.Submit` data payloads must include an `"action"` key. Recognized values:
 
-| action | handler behavior |
-|---|---|
-| `approve_draft` | Show final approval card |
-| `request_edit` | Resume graph at `revision` node |
-| `final_approve` | Resume graph at `output` node → PDF |
-| `reject` | Discard draft, inform user |
+| action | handler behavior | `as_node` |
+|---|---|---|
+| `approve_draft` | Show final approval card | — (no graph resume) |
+| `request_edit` | Resume graph with revision feedback | `"review"` |
+| `final_approve` | Resume graph → PDF generation | `"approve"` |
+| `reject` | Resume graph → audit trail, inform user | `"review"` |
+
+**CRITICAL:** `request_edit` must always pass `as_node="review"` regardless of whether the edit comes from the review card or the approval card. Without it, `review_node` re-executes and resets `status` to `"review_needed"`, preventing the revision loop from triggering.
 
 ## Card Text Length
 Adaptive Cards have a 2000-character display limit. Always truncate draft text:

@@ -38,12 +38,14 @@ async def _handle_text_message(self, turn_context, text, conversation_id, user_i
 
 `activity.value["action"]` determines the branch:
 
-| Action value | Bot response | Graph resume |
-|---|---|---|
-| `approve_draft` | Send `create_approval_card()` | No graph resume yet |
-| `request_edit` | Send thinking, then `create_review_card()` | `resume_from="revision"` |
-| `final_approve` | Send thinking, then `create_result_card()` | `resume_from="output"` |
-| `reject` | Send rejection message | No resume |
+| Action value | Bot response | Graph resume | `as_node` |
+|---|---|---|---|
+| `approve_draft` | Send `create_approval_card()` | No graph resume yet | — |
+| `request_edit` | Send thinking, then `create_review_card()` | `resume_from="revision"` | `"review"` (always) |
+| `final_approve` | Send thinking, then `create_result_card()` | `resume_from="output"` | `"approve"` |
+| `reject` | Send rejection message | `resume_from="rejection"` | `"review"` |
+
+**CRITICAL:** Every resume call passes `as_node` so LangGraph evaluates the outgoing edge directly instead of re-running the interrupted node.
 
 ## Adaptive Card Templates
 

@@ -1,8 +1,12 @@
 > **[ARCHIVED — 2026-03-12]**
-> This document is superseded by `specification.md` v1.1 (2026-03-12).
+> This document is superseded by `specification.md` v1.4 (2026-03-13).
 > It was the original pre-implementation design spec. During implementation,
 > 13 deviations were made (see `specification.md` section 16).
 > Kept for historical reference only — do NOT use for development.
+>
+> **Known bug in this spec's code:** The `request_edit` handler (line ~843) does not pass
+> `as_node="review"` when resuming the graph. This was fixed in the live codebase (2026-03-13).
+> See `specification.md` section 5.6 for the correct resume pattern.
 
 # agentize.eu PoC — Teljes Technikai Specifikáció
 
