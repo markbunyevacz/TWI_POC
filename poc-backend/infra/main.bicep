@@ -280,7 +280,7 @@ resource conversationsCol 'Microsoft.DocumentDB/databaseAccounts/mongodbDatabase
   }
 }
 
-// agent_state: LangGraph checkpoints — managed by LangGraph checkpointer
+// agent_state: LangGraph checkpoints — managed by MongoDBSaver checkpointer
 resource agentStateCol 'Microsoft.DocumentDB/databaseAccounts/mongodbDatabases/collections@2023-11-15' = {
   parent: cosmosDb
   name: 'agent_state'
@@ -289,9 +289,24 @@ resource agentStateCol 'Microsoft.DocumentDB/databaseAccounts/mongodbDatabases/c
       id: 'agent_state'
       indexes: [
         { key: { keys: ['_id'] } }
-        { key: { keys: ['thread_id'] } }
-        { key: { keys: ['checkpoint_id'] } }
+        { key: { keys: ['thread_id', 'checkpoint_ns', 'checkpoint_id'] }, options: { unique: true } }
         { key: { keys: ['created_at'] } }
+      ]
+    }
+    options: {}
+  }
+}
+
+// agent_state_writes: LangGraph pending intermediate writes per task
+resource agentStateWritesCol 'Microsoft.DocumentDB/databaseAccounts/mongodbDatabases/collections@2023-11-15' = {
+  parent: cosmosDb
+  name: 'agent_state_writes'
+  properties: {
+    resource: {
+      id: 'agent_state_writes'
+      indexes: [
+        { key: { keys: ['_id'] } }
+        { key: { keys: ['thread_id', 'checkpoint_ns', 'checkpoint_id', 'task_id', 'idx'] }, options: { unique: true } }
       ]
     }
     options: {}

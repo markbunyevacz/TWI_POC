@@ -2,6 +2,9 @@
 
 import pytest
 
+import app.locale.hu  # noqa: F401
+import app.locale.en  # noqa: F401
+
 
 @pytest.fixture
 def mock_llm_response():

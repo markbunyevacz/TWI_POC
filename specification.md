@@ -575,7 +575,7 @@ class AgentState(TypedDict):
     revision_count: int
 
     # Output
-    status: str  # "processing" | "review_needed" | "revision_requested" | "approved" | "completed" | "error"
+    status: str  # "processing" | "review_needed" | "revision_requested" | "approved" | "completed" | "rejected" | "clarification_needed" | "error"
     pdf_url: Optional[str]
     pdf_blob_name: Optional[str]
 
@@ -650,10 +650,11 @@ The graph uses a **MongoDB-backed checkpointer** (`MongoDBSaver`) that persists 
 Source: `poc-backend/app/agent/mongodb_checkpointer.py`
 
 The `MongoDBSaver` implements LangGraph's `BaseCheckpointSaver` interface with:
-- `get()` -- retrieves the latest checkpoint for a thread
-- `put()` -- upserts checkpoint with `thread_id + checkpoint_id` as composite key
-- `list()` -- lists checkpoints sorted by `created_at` descending
-- Indexes: `(thread_id, checkpoint_id)` unique, `(thread_id, created_at)` descending
+- `aget_tuple()` -- retrieves the latest checkpoint for a thread
+- `aput()` -- upserts checkpoint with `thread_id + checkpoint_ns + checkpoint_id` as composite key
+- `aput_writes()` -- persists pending intermediate writes per task
+- `alist()` -- lists checkpoints sorted by `checkpoint_id` descending
+- Indexes: `(thread_id, checkpoint_ns, checkpoint_id)` unique descending on `agent_state`; `(thread_id, checkpoint_ns, checkpoint_id, task_id, idx)` unique on `agent_state_writes`
 
 ### 5.6 Interrupt / Resume Pattern
 
@@ -854,19 +855,36 @@ Active chat sessions with 90-day TTL.
 
 ### 8.2 agent_state
 
-LangGraph checkpoints managed by the `MongoDBSaver` checkpointer.
+LangGraph checkpoints managed by the `MongoDBSaver` checkpointer. A companion collection `agent_state_writes` stores pending intermediate writes.
 
 | Field | Type | Description |
 |---|---|---|
 | `_id` | ObjectId | Auto-generated |
 | `thread_id` | string | Conversation ID (partition key) |
+| `checkpoint_ns` | string | Checkpoint namespace (default `""`) |
 | `checkpoint_id` | string | LangGraph checkpoint identifier |
 | `parent_checkpoint_id` | string | Previous checkpoint (for history traversal) |
-| `checkpoint` | object | LangGraph internal state blob |
-| `channels` | object | Channel version metadata |
+| `checkpoint` | object | Serialised (base64) checkpoint state blob |
+| `metadata` | object | Serialised (base64) checkpoint metadata |
+| `blobs` | object | Serialised channel values keyed by channel name |
 | `created_at` | ISODate | Checkpoint creation time |
 
-**Indexes:** `{ thread_id: 1, checkpoint_id: 1 }` unique, `{ thread_id: 1, created_at: -1 }`.
+**Indexes:** `{ thread_id: 1, checkpoint_ns: 1, checkpoint_id: -1 }` unique.
+
+**`agent_state_writes` collection:**
+
+| Field | Type | Description |
+|---|---|---|
+| `thread_id` | string | Conversation ID |
+| `checkpoint_ns` | string | Checkpoint namespace |
+| `checkpoint_id` | string | Parent checkpoint |
+| `task_id` | string | LangGraph task identifier |
+| `task_path` | string | Task path (default `""`) |
+| `idx` | int | Write index within task |
+| `channel` | string | Channel name |
+| `value` | object | Serialised (base64) write value |
+
+**Indexes:** `{ thread_id: 1, checkpoint_ns: 1, checkpoint_id: 1, task_id: 1, idx: 1 }` unique.
 
 ### 8.3 generated_documents
 

@@ -3,7 +3,7 @@
 from datetime import datetime
 from typing import Literal, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 AuditEventType = Literal[
     "twi_generated",
@@ -11,6 +11,12 @@ AuditEventType = Literal[
     "twi_rejected",
     "twi_revised",
 ]
+
+
+def _default_tenant_id() -> str:
+    from app.config import settings
+
+    return settings.default_tenant_id
 
 
 class AuditEntry(BaseModel):
@@ -21,7 +27,7 @@ class AuditEntry(BaseModel):
 
     conversation_id: str
     user_id: str
-    tenant_id: str = "poc-tenant"
+    tenant_id: str = Field(default=None)
     channel: str = Field(..., pattern=r"^(msteams|telegram)$")
     event_type: AuditEventType
     intent: Optional[str] = None
@@ -35,12 +41,19 @@ class AuditEntry(BaseModel):
     approval_timestamp: Optional[str] = None
     created_at: Optional[datetime] = None
 
+    @model_validator(mode="before")
+    @classmethod
+    def _set_tenant_default(cls, values: dict) -> dict:
+        if not values.get("tenant_id"):
+            values["tenant_id"] = _default_tenant_id()
+        return values
+
     class Config:
         json_schema_extra = {
             "example": {
                 "conversation_id": "conv-001",
                 "user_id": "aad-user-001",
-                "tenant_id": "poc-tenant",
+                "tenant_id": "my-tenant",
                 "channel": "msteams",
                 "event_type": "twi_generated",
                 "intent": "generate_twi",

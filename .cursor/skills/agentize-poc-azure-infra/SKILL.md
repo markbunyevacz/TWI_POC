@@ -25,7 +25,8 @@ rg-agentize-poc-swedencentral
 ├── cosmos-agentize-poc       Cosmos DB (MongoDB API, serverless)
 │   └── agentize-poc-db
 │       ├── conversations
-│       ├── agent_state       (LangGraph checkpoints)
+│       ├── agent_state         (LangGraph checkpoints)
+│       ├── agent_state_writes  (LangGraph pending writes)
 │       ├── audit_log
 │       └── generated_documents
 ├── stagentizepoc             Storage Account (Standard_LRS)

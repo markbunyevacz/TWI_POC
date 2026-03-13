@@ -75,12 +75,11 @@ A kódbázis közelebb áll a platform specifikációhoz, mint amit a supplier k
 
 ### 🟡 Közepes (szükséges, de nem blocker a POC-hoz)
 
-#### 4.4 Checkpointing: MemorySaver → Cosmos DB
+#### 4.4 Checkpointing: MemorySaver → Cosmos DB — ✅ RÉSZBEN MEGOLDVA
 - **Platform spec:** Cosmos DB checkpoint store (PlatformCheckpointer)
-- **Kód:** `MemorySaver()` — in-memory, elvész restart-nál
-- **Érintett fájlok:** `app/agent/graph.py` (`build_graph()`)
-- **Szükséges:** `PlatformCheckpointer` vagy `CosmosDBSaver` implementálás
-- **Becsült munka:** 1 nap
+- **Kód:** `MongoDBSaver` implementálva (`app/agent/mongodb_checkpointer.py`), automatikus fallback `MemorySaver`-re ha Cosmos DB nem elérhető. A `create_agent_graph()` függvény a `_get_checkpointer()` helper-en keresztül inicializálja.
+- **Érintett fájlok:** `app/agent/graph.py` (`create_agent_graph()`), `app/agent/mongodb_checkpointer.py`
+- **Hátralevő:** `PlatformCheckpointer` SDK integráció (platform oldali függőség)
 - **Megjegyzés:** Máté említette (old. 24), pozitívan
 
 #### 4.5 Agent Descriptor YAML — HIÁNYZIK
@@ -95,17 +94,17 @@ A kódbázis közelebb áll a platform specifikációhoz, mint amit a supplier k
 - **Érintett fájlok:** `Dockerfile`
 - **Becsült munka:** 15 perc
 
-#### 4.7 Token tracking kitöltése
+#### 4.7 Token tracking kitöltése — ✅ MEGOLDVA
 - **Platform spec:** Token-fogyasztás per-tenant mérése
-- **Kód:** `llm_tokens_used` mező létezik a state-ben, de soha nincs kitöltve. Az `ai_foundry.py` logolja a tokeneket de nem adja vissza.
+- **Kód:** `ai_foundry.py` `call_llm()` visszaadja a `(response_text, prompt_tokens, completion_tokens)` tuple-t. A `generate_node()` kumulatívan tölti a `llm_tokens_input` és `llm_tokens_output` mezőket a state-ben, amelyeket az `audit_node` a Cosmos DB-be ment.
 - **Érintett fájlok:** `app/services/ai_foundry.py`, `app/agent/nodes/generate.py`
-- **Becsült munka:** 1 óra
+- **Becsült munka:** 0 — kész
 
 ### 🟢 Kis változtatások / cleanup
 
-#### 4.8 `langsmith` törlése a requirements.txt-ből
-- Benne van de nincs használva — felesleges dependency, zavaró a security scannek
-- **Becsült munka:** 5 perc
+#### 4.8 `langsmith` törlése a requirements.txt-ből — ✅ MEGOLDVA
+- Eltávolítva a közvetlen függőség a `requirements.txt`-ből és `pyproject.toml`-ból. Tranzitív függőségként továbbra is települ a `langchain-core` révén.
+- **Becsült munka:** 0 — kész
 
 #### 4.9 Test bug fix
 - `test_graph.py`: `after_revision()` teszt rossz route neveket vár (`"review"` vs. `"regenerate"`)
@@ -132,11 +131,11 @@ A kódbázis közelebb áll a platform specifikációhoz, mint amit a supplier k
 |-----------|-------|---------------------|
 | Kommentben felvetett, de a kódban MÁR megoldott | 6 | 0 |
 | Kritikus gap (nem említették) | 3 | 6-10 nap |
-| Közepes gap | 4 | 2-3 nap |
-| Kis fix | 2 | 30 perc |
+| Közepes gap (4.4 részben megoldva, 4.7 megoldva) | 2 nyitott + 2 kész | ~1.5 nap |
+| Kis fix (4.8 megoldva) | 1 nyitott + 1 kész | 15 perc |
 | Platform oldali teendő | 5 | — |
 
-**Össz. supplier oldali munka:** ~8-13 nap (a kritikus gapek dominálnak, amiket nem is említettek)
+**Össz. supplier oldali munka:** ~7.5-11.5 nap (a kritikus gapek dominálnak, amiket nem is említettek)
 
 ---
 

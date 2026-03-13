@@ -12,6 +12,7 @@ from app.agent.nodes.revise import revise_node
 from app.agent.nodes.approve import approve_node
 from app.agent.nodes.output import output_node
 from app.agent.nodes.audit import audit_node
+from app.agent.nodes.clarify import clarify_node
 
 logger = logging.getLogger(__name__)
 
@@ -36,12 +37,16 @@ async def _get_checkpointer():
                 logger.info("Using MongoDB checkpointer for persistent state")
             else:
                 logger.warning(
-                    "Cosmos DB not configured - using in-memory checkpointer"
+                    "Cosmos DB not configured — using in-memory checkpointer. "
+                    "Conversation state will be LOST on restart and is NOT "
+                    "shared across replicas. Set COSMOS_CONNECTION to enable persistence."
                 )
                 _checkpointer = MemorySaver()
         except Exception as exc:
             logger.warning(
-                f"Failed to initialize MongoDB checkpointer: {exc}. Using MemorySaver."
+                "Failed to initialize MongoDB checkpointer: %s. "
+                "Falling back to MemorySaver — state will NOT persist across restarts.",
+                exc,
             )
             _checkpointer = MemorySaver()
     return _checkpointer
@@ -77,15 +82,6 @@ def after_revision(state: AgentState) -> str:
 async def reject_node(state: AgentState) -> AgentState:
     """Finalise rejection state so audit_node logs a twi_rejected event."""
     return {**state, "status": "rejected"}
-
-
-async def clarify_node(state: AgentState) -> AgentState:
-    """Placeholder clarification node for unknown intent."""
-    return {
-        **state,
-        "status": "clarification_needed",
-        "draft": None,
-    }
 
 
 async def create_agent_graph():
@@ -138,7 +134,6 @@ async def create_agent_graph():
 
     builder.add_edge("approve", "output")
     builder.add_edge("output", "audit")
-    builder.add_edge("reject", "audit")
     builder.add_edge("audit", END)
     builder.add_edge("clarify", END)
 
@@ -163,7 +158,7 @@ async def run_agent(
     user_id: str,
     conversation_id: str,
     channel: str = "msteams",
-    tenant_id: str = "poc-tenant",  # TODO: pass per-request once multi-tenant
+    tenant_id: str | None = None,
     resume_from: str | None = None,
     context: dict | None = None,
     as_node: str | None = None,
@@ -171,12 +166,17 @@ async def run_agent(
     """Invoke or resume the LangGraph agent for a given conversation.
 
     Args:
+        tenant_id: Tenant identifier. Falls back to ``settings.default_tenant_id``
+            when not provided.
         as_node: Override the ``as_node`` argument passed to
             ``graph.aupdate_state``.  When resuming from the *approval*
             interrupt but routing back to revision, pass ``"review"`` so
             LangGraph evaluates the ``after_review`` conditional edge
             instead of following the static approve → output edge.
     """
+    from app.config import settings as _settings
+
+    resolved_tenant_id = tenant_id or _settings.default_tenant_id
     config = {"configurable": {"thread_id": conversation_id}}
 
     if resume_from:
@@ -189,7 +189,7 @@ async def run_agent(
     else:
         initial_state = AgentState(
             user_id=user_id,
-            tenant_id=tenant_id,
+            tenant_id=resolved_tenant_id,
             conversation_id=conversation_id,
             channel=channel,
             message=message,

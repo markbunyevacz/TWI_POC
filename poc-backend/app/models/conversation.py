@@ -3,7 +3,13 @@
 from datetime import datetime
 from typing import Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
+
+
+def _default_tenant_id() -> str:
+    from app.config import settings
+
+    return settings.default_tenant_id
 
 
 class Conversation(BaseModel):
@@ -14,7 +20,7 @@ class Conversation(BaseModel):
 
     conversation_id: str
     user_id: str
-    tenant_id: str = "poc-tenant"
+    tenant_id: str = Field(default=None)
     channel: str = Field(
         ..., pattern=r"^(msteams|telegram)$", description="Bot channel identifier"
     )
@@ -23,12 +29,19 @@ class Conversation(BaseModel):
     message_count: int = 1
     status: str = "active"
 
+    @model_validator(mode="before")
+    @classmethod
+    def _set_tenant_default(cls, values: dict) -> dict:
+        if not values.get("tenant_id"):
+            values["tenant_id"] = _default_tenant_id()
+        return values
+
     class Config:
         json_schema_extra = {
             "example": {
                 "conversation_id": "19:abc123@thread.v2",
                 "user_id": "aad-user-001",
-                "tenant_id": "poc-tenant",
+                "tenant_id": "my-tenant",
                 "channel": "msteams",
                 "started_at": "2026-03-12T08:00:00Z",
                 "last_activity": "2026-03-12T08:05:00Z",
@@ -43,7 +56,14 @@ class ConversationCreate(BaseModel):
 
     conversation_id: str
     user_id: str
-    tenant_id: str = "poc-tenant"
+    tenant_id: str = Field(default=None)
     channel: str = Field(..., pattern=r"^(msteams|telegram)$")
     started_at: Optional[datetime] = None
     last_activity: Optional[datetime] = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def _set_tenant_default(cls, values: dict) -> dict:
+        if not values.get("tenant_id"):
+            values["tenant_id"] = _default_tenant_id()
+        return values

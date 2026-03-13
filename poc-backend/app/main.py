@@ -8,11 +8,16 @@ from botframework.connector.auth import JwtTokenValidation, SimpleCredentialProv
 from app.config import settings
 from app.bot.bot_handler import AgentizeBotHandler
 
+import app.locale.hu  # noqa: F401  — register Hungarian strings
+import app.locale.en  # noqa: F401  — register English strings
+
 logging.basicConfig(
     level=getattr(logging, settings.log_level.upper(), logging.INFO),
     format="%(asctime)s %(levelname)s %(name)s — %(message)s",
 )
 logger = logging.getLogger(__name__)
+
+settings.validate_production_settings()
 
 if settings.applicationinsights_connection_string:
     try:
@@ -25,11 +30,13 @@ if settings.applicationinsights_connection_string:
     except Exception as e:
         logger.error("Failed to initialize Application Insights: %s", e)
 
+_enable_docs = settings.environment in ("poc", "development")
+
 app = FastAPI(
     title="agentize.eu PoC Backend",
     version="0.1.0",
-    docs_url="/docs" if settings.environment == "poc" else None,
-    redoc_url="/redoc" if settings.environment == "poc" else None,
+    docs_url="/docs" if _enable_docs else None,
+    redoc_url="/redoc" if _enable_docs else None,
 )
 
 # Bot Framework adapter — SingleTenant requires channel_auth_tenant
@@ -45,8 +52,10 @@ bot = AgentizeBotHandler()
 
 
 async def _on_error(context, error: Exception) -> None:
+    from app.locale import t
+
     logger.error("Bot adapter error: %s", error, exc_info=True)
-    await context.send_activity("Hiba történt. Kérlek próbáld újra.")
+    await context.send_activity(t("bot.error_generic"))
 
 
 adapter.on_turn_error = _on_error

@@ -96,11 +96,12 @@ await turn_context.send_activity(
 | Collection | Purpose | Key Indexes |
 |------------|---------|-------------|
 | `conversations` | Bot conversation state | `{conversation_id:1}` unique; TTL 90 days |
-| `agent_state` | LangGraph checkpoints (auto-managed) | `{thread_id:1}` |
+| `agent_state` | LangGraph checkpoints (auto-managed) | `{thread_id:1, checkpoint_ns:1, checkpoint_id:-1}` unique |
+| `agent_state_writes` | LangGraph pending writes (auto-managed) | `{thread_id:1, checkpoint_ns:1, checkpoint_id:1, task_id:1, idx:1}` unique |
 | `generated_documents` | Approved TWI docs + PDF links | `{tenant_id:1, created_at:-1}` |
 | `audit_log` | Full audit trail per event | `{tenant_id:1, created_at:-1}`, `{event_type:1}` |
 
-`agent_state` is managed automatically by the LangGraph checkpointer — do not write to it manually.
+`agent_state` and `agent_state_writes` are managed automatically by the `MongoDBSaver` checkpointer — do not write to them manually.
 
 ## Teams App Manifest (sideload)
 

@@ -3,7 +3,13 @@
 from datetime import datetime
 from typing import Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
+
+
+def _default_tenant_id() -> str:
+    from app.config import settings
+
+    return settings.default_tenant_id
 
 
 class TWIDocument(BaseModel):
@@ -12,7 +18,7 @@ class TWIDocument(BaseModel):
     document_id: str = Field(..., description="Unique hex identifier (uuid4)")
     conversation_id: str
     user_id: str
-    tenant_id: str = "poc-tenant"
+    tenant_id: str = Field(default=None)
     title: str
     content_type: str = "twi"
     draft_content: str = Field(..., description="Final approved markdown content")
@@ -27,13 +33,20 @@ class TWIDocument(BaseModel):
     approved_by: str
     created_at: Optional[datetime] = None
 
+    @model_validator(mode="before")
+    @classmethod
+    def _set_tenant_default(cls, values: dict) -> dict:
+        if not values.get("tenant_id"):
+            values["tenant_id"] = _default_tenant_id()
+        return values
+
     class Config:
         json_schema_extra = {
             "example": {
                 "document_id": "a1b2c3d4e5f6",
                 "conversation_id": "conv-001",
                 "user_id": "aad-user-001",
-                "tenant_id": "poc-tenant",
+                "tenant_id": "my-tenant",
                 "title": "CNC-01 gép napi beállítása",
                 "content_type": "twi",
                 "draft_content": "## CÍM: CNC-01 gép napi beállítása ...",

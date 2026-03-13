@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| **Version** | 2.1 |
+| **Version** | 2.2 |
 | **Date** | 2026-03-13 |
 | **Status** | Reference |
 | **Owner** | agentize.eu |
@@ -51,9 +51,11 @@ TWI_POC/
 │   ├── poc_vibe_coding_context.md                   [archived]
 │   ├── poc_vibe_coding_context.md.pdf               [archived]
 │   └── poc_implementation_specification.md          [archived]
-├── agent_vendor_guide_v2.docx                       [doc]
 ├── codebase_snapshot.md                             [doc]
+├── container_logs.txt                               [log]
 ├── go_live_guide.md                                 [doc]
+├── INSTALL.md                                       [doc]
+├── PETER_GAP.md                                     [doc]
 ├── specification.md                                 [doc]
 ├── poc-backend/
 │   ├── .devcontainer/
@@ -64,6 +66,7 @@ TWI_POC/
 │   ├── Dockerfile                                   [config]
 │   ├── pyproject.toml                               [config]
 │   ├── requirements.txt                             [config]
+│   ├── requirements.lock                            [config]
 │   ├── setup.cfg                                    [config]
 │   ├── app/
 │   │   ├── __init__.py                              [code]
@@ -119,8 +122,10 @@ TWI_POC/
 │       ├── test_bot_handler.py                      [code]
 │       ├── test_checkpoint_integration.py           [code]
 │       ├── test_cosmos_db.py                        [code]
+│       ├── test_e2e_chat.py                         [code]
 │       ├── test_generation.py                       [code]
 │       ├── test_graph.py                            [code]
+│       ├── test_local_bot.py                        [code]
 │       ├── test_mongodb_checkpointer.py             [code]
 │       ├── test_output.py                           [code]
 │       └── test_pdf.py                              [code]
@@ -140,7 +145,6 @@ TWI_POC/
 |---|---|---|
 | LangGraph | requirements.txt | `>=1.0.0` |
 | LangChain Core | requirements.txt | `>=1.2.0` |
-| LangSmith | requirements.txt | `>=0.7.0` |
 | Azure AI Inference SDK | requirements.txt | `>=1.0.0b1,<2.0.0` |
 | GPT-4o (default model) | config.py, main.bicep | `gpt-4o` |
 | Mistral Large 3 (alternative) | main.bicep | `Mistral-Large-3` |

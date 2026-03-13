@@ -50,7 +50,8 @@ def _initial_state(
         pdf_url=None,
         pdf_blob_name=None,
         llm_model=None,
-        llm_tokens_used=None,
+        llm_tokens_input=None,
+        llm_tokens_output=None,
         approval_timestamp=None,
         messages=[],
     )
@@ -67,12 +68,26 @@ def mock_llm():
         nonlocal call_count
         call_count += 1
         if max_tokens and max_tokens <= 20:
-            return ("generate_twi", 10)
-        return (SAMPLE_DRAFT, 500)
+            return ("generate_twi", 10, 5)
+        if max_tokens and max_tokens <= 300:
+            return (
+                '{"machine_id": "CNC-01", "process_type": "setup", '
+                '"department": null, "safety_concerns": [], '
+                '"summary": "CNC-01 gép beállítása"}',
+                15,
+                25,
+            )
+        return (SAMPLE_DRAFT, 500, 200)
 
     with patch("app.agent.nodes.intent.call_llm", side_effect=_fake_llm):
         with patch("app.agent.nodes.generate.call_llm", side_effect=_fake_llm):
-            yield
+            with patch(
+                "app.agent.nodes.process_input.call_llm", side_effect=_fake_llm
+            ):
+                with patch(
+                    "app.agent.nodes.clarify.call_llm", side_effect=_fake_llm
+                ):
+                    yield
 
 
 @pytest.fixture

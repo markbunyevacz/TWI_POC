@@ -42,12 +42,12 @@ def _get_db() -> AsyncIOMotorDatabase:
 class MongoDBSaver(BaseCheckpointSaver):
     """MongoDB-backed checkpoint saver for LangGraph using Cosmos DB (MongoDB API).
 
-    Uses three collections:
-      - ``checkpoints``   – checkpoint data + serialised channel blobs
-      - ``checkpoints_writes`` – pending intermediate writes per task
+    Uses two collections:
+      - ``agent_state``         – checkpoint data + serialised channel blobs
+      - ``agent_state_writes``  – pending intermediate writes per task
     """
 
-    def __init__(self, collection_name: str = "checkpoints") -> None:
+    def __init__(self, collection_name: str = "agent_state") -> None:
         super().__init__()
         db = _get_db()
         self.checkpoints = db[collection_name]

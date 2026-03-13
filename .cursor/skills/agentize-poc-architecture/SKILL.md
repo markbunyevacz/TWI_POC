@@ -27,7 +27,7 @@ Teams / Telegram
   └── Azure Bot Service (channel routing)
         └── FastAPI (Container App, VNET)
               ├── LangGraph Agent (intent → generate → review → approve → PDF)
-              ├── Azure AI Foundry (Mistral Large / GPT-4o, Data Zone Standard)
+              ├── Azure AI Foundry (GPT-4o / Mistral Large, Data Zone Standard)
               ├── Cosmos DB (MongoDB API) — state + audit
               └── Blob Storage — PDF output
 ```
@@ -38,7 +38,7 @@ Teams / Telegram
 2. FastAPI → `BotFrameworkAdapter` → `AgentizeBotHandler.on_message_activity()`
 3. Bot handler → `run_agent()` → LangGraph graph invocation
 4. **Intent node** classifies: `generate_twi | edit_twi | question | unknown`
-5. **Generate node** → AI Foundry (Mistral Large, temp=0.3) → draft + AI label
+5. **Generate node** → AI Foundry (GPT-4o default / Mistral Large alternative, temp=0.3) → draft + AI label
 6. **Review checkpoint** (INTERRUPT) → Adaptive Card sent to user
 7. User approves/edits → Bot handler resumes graph with `resume_from` + `as_node`
 8. **Final approval checkpoint** (INTERRUPT) → second confirmation

@@ -11,7 +11,8 @@ from app.bot.adaptive_cards import (
     create_result_card,
     create_welcome_card,
 )
-from app.services.cosmos_db import ConversationStore
+from app.locale import t
+from app.services.cosmos_db import ConversationStore, PendingStateStore
 
 logger = logging.getLogger(__name__)
 
@@ -23,7 +24,7 @@ def _is_telegram_channel(channel_id: str) -> bool:
 
 def _format_telegram_review(draft: str, metadata: dict) -> str:
     """Format draft content for Telegram (no Adaptive Cards support)."""
-    title = metadata.get("title", "TWI Munkautasítás")
+    title = metadata.get("title", t("telegram.review.title_default"))
     model = metadata.get("model", "N/A")
     generated_at = metadata.get("generated_at", "N/A")
 
@@ -33,41 +34,40 @@ def _format_telegram_review(draft: str, metadata: dict) -> str:
     if len(draft) > 500:
         text += "... (truncated)"
     text += "\n```\n\n"
-    text += "Kérlek válaszolj a következőkkel:\n"
-    text += "✅ *Elfogadás* - véglegesítés\n"
-    text += "🔄 *Módosítás* - kérek változtatást\n"
-    text += "❌ *Elutasítás* - törlés"
+    text += t("telegram.review.prompt") + "\n"
+    text += t("telegram.review.approve") + "\n"
+    text += t("telegram.review.edit") + "\n"
+    text += t("telegram.review.reject")
     return text
 
 
 def _format_telegram_approval(draft: str, metadata: dict) -> str:
     """Format final approval request for Telegram."""
-    title = metadata.get("title", "Véglegesítés")
+    title = metadata.get("title", t("telegram.approval.title_default"))
 
     text = f"📄 *{title}*\n\n"
-    text += "A dokumentum elkészült! Véglegesítsem és PDF-et generáljak?\n\n"
-    text += "Kérlek válaszolj:\n"
-    text += "✅ *Igen* - PDF generálás\n"
-    text += "❌ *Nem* - elutasítás"
+    text += t("telegram.approval.body") + "\n\n"
+    text += t("telegram.approval.prompt") + "\n"
+    text += t("telegram.approval.yes") + "\n"
+    text += t("telegram.approval.no")
     return text
 
 
 def _format_telegram_result(pdf_url: str, document_title: str, metadata: dict) -> str:
     """Format result message for Telegram."""
-    approved_by = metadata.get("approved_by", "Ismeretlen")
-    text = "✅ *Dokumentum elkészült!*\n\n"
+    approved_by = metadata.get("approved_by", t("telegram.result.approved_by_default"))
+    text = t("telegram.result.header") + "\n\n"
     text += f"📄 *{document_title}*\n\n"
-    text += f"👤 Jóváhagyta: {approved_by}\n"
-    text += f"📥 Letöltés: {pdf_url}"
+    text += f"👤 {t('card.result.approved_by_label')} {approved_by}\n"
+    text += f"📥 {t('card.result.download_btn')}: {pdf_url}"
     return text
 
 
 class AgentizeBotHandler(ActivityHandler):
     def __init__(self) -> None:
-        # Note: graph is initialized lazily since get_graph is now async
         self.graph = None
         self.conversation_store = ConversationStore()
-        self._pending_revision: dict[str, bool] = {}
+        self._pending_state = PendingStateStore()
 
     async def _get_graph(self):
         """Lazy initialization of the graph."""
@@ -86,7 +86,7 @@ class AgentizeBotHandler(ActivityHandler):
         conversation_id = turn_context.activity.conversation.id
         channel_id = turn_context.activity.channel_id
         text: str = turn_context.activity.text or ""
-        value = turn_context.activity.value  # set when an Adaptive Card is submitted
+        value = turn_context.activity.value
 
         logger.info(
             "Message from user=%s channel=%s text=%.50s",
@@ -95,7 +95,6 @@ class AgentizeBotHandler(ActivityHandler):
             text,
         )
 
-        # Track the conversation in Cosmos DB
         await self.conversation_store.get_or_create(
             conversation_id=conversation_id,
             user_id=user_id,
@@ -107,7 +106,6 @@ class AgentizeBotHandler(ActivityHandler):
                 turn_context, value, conversation_id, user_id
             )
         elif _is_telegram_channel(channel_id):
-            # Handle Telegram text responses (Igen/Nem for approvals)
             await self._handle_telegram_text(
                 turn_context, text, conversation_id, user_id
             )
@@ -126,7 +124,7 @@ class AgentizeBotHandler(ActivityHandler):
                 await self._send_card(turn_context, card)
 
     # ------------------------------------------------------------------
-    # Text message → LangGraph
+    # Text message -> LangGraph
     # ------------------------------------------------------------------
 
     async def _handle_text_message(
@@ -139,7 +137,7 @@ class AgentizeBotHandler(ActivityHandler):
     ) -> None:
         is_telegram = _is_telegram_channel(channel_id)
 
-        await turn_context.send_activity("⏳ Feldolgozom a kérésedet...")
+        await turn_context.send_activity(t("bot.processing"))
 
         try:
             result = await run_agent(
@@ -151,12 +149,11 @@ class AgentizeBotHandler(ActivityHandler):
             )
         except Exception as exc:  # noqa: BLE001
             logger.error("Agent error: %s", exc, exc_info=True)
-            await turn_context.send_activity(f"❌ Hiba: {exc}")
+            await turn_context.send_activity(t("bot.error", message=exc))
             return
 
         status = result.get("status", "")
 
-        # Handle Telegram channel - no Adaptive Cards support
         if is_telegram:
             await self._handle_telegram_response(turn_context, result, status)
             return
@@ -169,18 +166,15 @@ class AgentizeBotHandler(ActivityHandler):
             await self._send_card(turn_context, card)
 
         elif status == "clarification_needed":
-            clarify_msg = (
-                "Kérlek pontosítsd a kérésedet. Például: "
-                '"Készíts egy TWI utasítást a CNC-01 gép napi karbantartásáról."'
-            )
+            clarify_msg = result.get("draft") or t("bot.clarify_fallback")
             await turn_context.send_activity(clarify_msg)
 
         elif status == "error":
-            msg = result.get("message", "Ismeretlen hiba")
-            await turn_context.send_activity(f"❌ Hiba: {msg}")
+            msg = result.get("message", t("bot.error_generic"))
+            await turn_context.send_activity(t("bot.error", message=msg))
 
         else:
-            await turn_context.send_activity(f"Állapot: {status}")
+            await turn_context.send_activity(t("bot.status", status=status))
 
     # ------------------------------------------------------------------
     # Telegram-specific response handlers (no Adaptive Cards)
@@ -201,18 +195,15 @@ class AgentizeBotHandler(ActivityHandler):
             await turn_context.send_activity(text)
 
         elif status == "clarification_needed":
-            clarify_msg = (
-                "Kérlek pontosítsd a kérésedet. Például: "
-                '"Készíts egy TWI utasítást a CNC-01 gép napi karbantartásáról."'
-            )
+            clarify_msg = result.get("draft") or t("bot.clarify_fallback")
             await turn_context.send_activity(clarify_msg)
 
         elif status == "error":
-            msg = result.get("message", "Ismeretlen hiba")
-            await turn_context.send_activity(f"❌ Hiba: {msg}")
+            msg = result.get("message", t("bot.error_generic"))
+            await turn_context.send_activity(t("bot.error", message=msg))
 
         else:
-            await turn_context.send_activity(f"Állapot: {status}")
+            await turn_context.send_activity(t("bot.status", status=status))
 
     # ------------------------------------------------------------------
     # Telegram text response handler (Igen/Nem)
@@ -228,11 +219,8 @@ class AgentizeBotHandler(ActivityHandler):
         """Handle text responses from Telegram users for approvals."""
         text_lower = text.lower().strip()
 
-        # If we're waiting for revision feedback, treat this message as the feedback
-        if self._pending_revision.pop(conversation_id, False):
-            await turn_context.send_activity(
-                "⏳ Módosítom a szerkesztési kérésed alapján..."
-            )
+        if await self._pending_state.pop_flag(conversation_id, "pending_revision"):
+            await turn_context.send_activity(t("telegram.revision_processing"))
             try:
                 result = await run_agent(
                     graph=await self._get_graph(),
@@ -244,7 +232,9 @@ class AgentizeBotHandler(ActivityHandler):
                 )
             except Exception as exc:
                 logger.error("Telegram revision error: %s", exc, exc_info=True)
-                await turn_context.send_activity(f"❌ Hiba a szerkesztés során: {exc}")
+                await turn_context.send_activity(
+                    t("telegram.revision_error", error=exc)
+                )
                 return
 
             reply = _format_telegram_review(
@@ -254,7 +244,6 @@ class AgentizeBotHandler(ActivityHandler):
             await turn_context.send_activity(reply)
             return
 
-        # Check for approval responses
         if text_lower in [
             "igen",
             "yes",
@@ -265,9 +254,7 @@ class AgentizeBotHandler(ActivityHandler):
             "approve",
             "approved",
         ]:
-            # Final approval → resume graph → PDF generation.
-            # as_node="approve" so the graph skips the second interrupt.
-            await turn_context.send_activity("⏳ PDF generalas folyamatban...")
+            await turn_context.send_activity(t("telegram.approval_processing"))
             timestamp = datetime.now(timezone.utc).isoformat()
 
             try:
@@ -282,7 +269,9 @@ class AgentizeBotHandler(ActivityHandler):
                 )
             except Exception as exc:
                 logger.error("Agent output error: %s", exc, exc_info=True)
-                await turn_context.send_activity(f"❌ PDF generalas sikertelen: {exc}")
+                await turn_context.send_activity(
+                    t("telegram.approval_failed", error=exc)
+                )
                 return
 
             metadata = result.get("draft_metadata", {})
@@ -290,12 +279,11 @@ class AgentizeBotHandler(ActivityHandler):
 
             text = _format_telegram_result(
                 result.get("pdf_url", "#"),
-                result.get("title", "TWI Munkautasitas"),
+                result.get("title", t("card.title_default")),
                 metadata,
             )
             await turn_context.send_activity(text)
 
-        # Check for rejection responses
         elif text_lower in [
             "nem",
             "no",
@@ -305,9 +293,7 @@ class AgentizeBotHandler(ActivityHandler):
             "reject",
             "rejected",
         ]:
-            await turn_context.send_activity(
-                "🗑️ Elvettem a vazlatot. Uj keressel indithatsz ujat."
-            )
+            await turn_context.send_activity(t("telegram.rejected"))
             try:
                 await run_agent(
                     graph=await self._get_graph(),
@@ -320,26 +306,15 @@ class AgentizeBotHandler(ActivityHandler):
             except Exception as exc:
                 logger.error("Rejection audit failed: %s", exc, exc_info=True)
 
-        # Check for revision requests
         elif text_lower in ["modositas", "change", "modify", "revise"]:
-            self._pending_revision[conversation_id] = True
-            await turn_context.send_activity(
-                "Kerlek ird le a modositasi kereseidet a dokumentumhoz:"
-            )
+            await self._pending_state.set_flag(conversation_id, "pending_revision")
+            await turn_context.send_activity(t("telegram.revision_prompt"))
 
         else:
-            # Not a recognized command - explain options
-            help_text = (
-                "Nem ertem a valaszod. Kerlek hasznald a kovetkezo parancsokat:\n\n"
-                "✅ *Igen* - dokumentum elfogadasa es PDF generalas\n"
-                "❌ *Nem* - dokumentum elutasitasa\n"
-                "🔄 *Modositas* - modositas kérése\n\n"
-                "Vagy kuldj egy uj kerest uj dokumentum generalasahoz."
-            )
-            await turn_context.send_activity(help_text)
+            await turn_context.send_activity(t("telegram.help"))
 
     # ------------------------------------------------------------------
-    # Adaptive Card action → LangGraph resume
+    # Adaptive Card action -> LangGraph resume
     # ------------------------------------------------------------------
 
     async def _handle_card_action(
@@ -354,9 +329,8 @@ class AgentizeBotHandler(ActivityHandler):
         action = value.get("action")
 
         if action == "approve_draft":
-            # For Telegram, directly proceed to final approval
             if is_telegram:
-                await turn_context.send_activity("⏳ Véglegesítés...")
+                await turn_context.send_activity(t("card.approve_processing"))
                 timestamp = datetime.now(timezone.utc).isoformat()
                 try:
                     result = await run_agent(
@@ -370,7 +344,7 @@ class AgentizeBotHandler(ActivityHandler):
                     )
                 except Exception as exc:
                     logger.error("Agent output error: %s", exc, exc_info=True)
-                    await turn_context.send_activity(f"❌ Hiba: {exc}")
+                    await turn_context.send_activity(t("card.error", error=exc))
                     return
 
                 metadata = result.get("draft_metadata", {})
@@ -378,12 +352,11 @@ class AgentizeBotHandler(ActivityHandler):
 
                 text = _format_telegram_result(
                     result.get("pdf_url", "#"),
-                    result.get("title", "TWI Munkautasítás"),
+                    result.get("title", t("card.title_default")),
                     metadata,
                 )
                 await turn_context.send_activity(text)
             else:
-                # Teams - send Final Approval card
                 card = create_approval_card(
                     draft=value.get("draft", ""),
                     metadata=value.get("metadata", {}),
@@ -391,17 +364,10 @@ class AgentizeBotHandler(ActivityHandler):
                 await self._send_card(turn_context, card)
 
         elif action == "request_edit":
-            # Revision requested → resume graph with revision feedback.
-            # as_node="review" tells LangGraph that this state update
-            # comes from the review node, so it evaluates after_review
-            # directly instead of re-running review_node (which would
-            # overwrite status back to "review_needed").
             feedback = value.get("feedback", "")
             resume_as_node = "review"
 
-            await turn_context.send_activity(
-                "⏳ Módosítom a szerkesztési kérésed alapján..."
-            )
+            await turn_context.send_activity(t("card.revision_processing"))
 
             try:
                 result = await run_agent(
@@ -415,10 +381,11 @@ class AgentizeBotHandler(ActivityHandler):
                 )
             except Exception as exc:  # noqa: BLE001
                 logger.error("Agent revision error: %s", exc, exc_info=True)
-                await turn_context.send_activity(f"❌ Hiba a szerkesztés során: {exc}")
+                await turn_context.send_activity(
+                    t("card.revision_error", error=exc)
+                )
                 return
 
-            # Send appropriate response based on channel
             if is_telegram:
                 text = _format_telegram_review(
                     result.get("draft", ""),
@@ -433,11 +400,7 @@ class AgentizeBotHandler(ActivityHandler):
                 await self._send_card(turn_context, card)
 
         elif action == "final_approve":
-            # Final approval → resume graph → PDF generation.
-            # as_node="approve" skips the second interrupt (interrupt_before
-            # includes both "review" and "approve") so the graph continues
-            # directly to output → audit → END.
-            await turn_context.send_activity("⏳ PDF generálás folyamatban...")
+            await turn_context.send_activity(t("card.pdf_processing"))
             timestamp = datetime.now(timezone.utc).isoformat()
 
             try:
@@ -452,33 +415,29 @@ class AgentizeBotHandler(ActivityHandler):
                 )
             except Exception as exc:  # noqa: BLE001
                 logger.error("Agent output error: %s", exc, exc_info=True)
-                await turn_context.send_activity(f"❌ PDF generálás sikertelen: {exc}")
+                await turn_context.send_activity(t("card.pdf_failed", error=exc))
                 return
 
-            # Enrich metadata with approver info for the result card
             metadata = result.get("draft_metadata", {})
             metadata["approved_by"] = user_id
 
             if is_telegram:
                 text = _format_telegram_result(
                     result.get("pdf_url", "#"),
-                    result.get("title", "TWI Munkautasítás"),
+                    result.get("title", t("card.title_default")),
                     metadata,
                 )
                 await turn_context.send_activity(text)
             else:
                 card = create_result_card(
                     pdf_url=result.get("pdf_url", "#"),
-                    document_title=result.get("title", "TWI Munkautasítás"),
+                    document_title=result.get("title", t("card.title_default")),
                     metadata=metadata,
                 )
                 await self._send_card(turn_context, card)
 
         elif action == "reject":
-            await turn_context.send_activity(
-                "🗑️ Elvettem a vázlatot. Új kéréssel indíthatsz újat."
-            )
-            # Resume graph so reject_node → audit_node fires (EU AI Act audit trail)
+            await turn_context.send_activity(t("card.rejected"))
             try:
                 await run_agent(
                     graph=await self._get_graph(),

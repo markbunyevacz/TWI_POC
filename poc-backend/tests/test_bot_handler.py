@@ -446,7 +446,8 @@ class TestTelegramRevisionFeedback:
             turn_context, "modositas", "conv-123", "user-456"
         )
 
-        assert handler._pending_revision.get("conv-123") is True
+        is_set = await handler._pending_state.pop_flag("conv-123", "pending_revision")
+        assert is_set is True
 
     @pytest.mark.asyncio
     async def test_next_message_after_modositas_treated_as_feedback(self):
@@ -454,7 +455,7 @@ class TestTelegramRevisionFeedback:
 
         handler = AgentizeBotHandler()
         handler._get_graph = AsyncMock(return_value=MagicMock())
-        handler._pending_revision["conv-123"] = True
+        await handler._pending_state.set_flag("conv-123", "pending_revision")
 
         turn_context = MagicMock()
         turn_context.send_activity = AsyncMock()
@@ -476,7 +477,10 @@ class TestTelegramRevisionFeedback:
             assert kwargs["resume_from"] == "revision"
             assert kwargs["context"]["feedback"] == "Add temperature check to step 3"
 
-        assert "conv-123" not in handler._pending_revision
+        is_still_set = await handler._pending_state.pop_flag(
+            "conv-123", "pending_revision"
+        )
+        assert is_still_set is False
 
 
 class TestBotHandlerEdgeCases:

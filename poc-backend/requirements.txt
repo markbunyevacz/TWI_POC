@@ -17,7 +17,6 @@ aiohttp>=3.10.0
 # LangGraph + LangChain
 langgraph>=1.0.0
 langchain-core>=1.2.0
-langsmith>=0.7.0
 
 # Azure services
 azure-identity>=1.25.0

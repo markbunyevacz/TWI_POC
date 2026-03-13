@@ -183,6 +183,54 @@ class TestCreateAgentGraph:
 
 
 # ---------------------------------------------------------------------------
+# Clarify node (LLM-based)
+# ---------------------------------------------------------------------------
+
+
+class TestClarifyNode:
+    @pytest.mark.asyncio
+    async def test_clarify_calls_llm_and_returns_draft(self):
+        with patch(
+            "app.agent.nodes.clarify.call_llm",
+            new=AsyncMock(
+                return_value=("Kérlek pontosítsd, milyen utasítást szeretnél.", 10, 20)
+            ),
+        ):
+            from app.agent.nodes.clarify import clarify_node
+
+            result = await clarify_node(_make_state(intent="unknown"))
+        assert result["status"] == "clarification_needed"
+        assert result["draft"] == "Kérlek pontosítsd, milyen utasítást szeretnél."
+        assert result["llm_tokens_input"] == 10
+        assert result["llm_tokens_output"] == 20
+
+    @pytest.mark.asyncio
+    async def test_clarify_fallback_on_llm_error(self):
+        with patch(
+            "app.agent.nodes.clarify.call_llm",
+            new=AsyncMock(side_effect=RuntimeError("LLM unavailable")),
+        ):
+            from app.agent.nodes.clarify import clarify_node
+
+            result = await clarify_node(_make_state(intent="unknown"))
+        assert result["status"] == "clarification_needed"
+        assert result["draft"] is None
+
+    @pytest.mark.asyncio
+    async def test_clarify_accumulates_token_counts(self):
+        with patch(
+            "app.agent.nodes.clarify.call_llm",
+            new=AsyncMock(return_value=("Miben segíthetek?", 8, 12)),
+        ):
+            from app.agent.nodes.clarify import clarify_node
+
+            state = _make_state(llm_tokens_input=100, llm_tokens_output=200)
+            result = await clarify_node(state)
+        assert result["llm_tokens_input"] == 108
+        assert result["llm_tokens_output"] == 212
+
+
+# ---------------------------------------------------------------------------
 # Intent node (mocked LLM)
 # ---------------------------------------------------------------------------
 

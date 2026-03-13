@@ -1,4 +1,9 @@
+import logging
+import sys
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+_config_logger = logging.getLogger("app.config")
 
 
 class Settings(BaseSettings):
@@ -34,6 +39,9 @@ class Settings(BaseSettings):
     # Application Insights
     applicationinsights_connection_string: str = ""
 
+    # Multi-tenant
+    default_tenant_id: str = "poc-tenant"
+
     # App
     environment: str = "poc"
     log_level: str = "INFO"
@@ -42,6 +50,59 @@ class Settings(BaseSettings):
         env_file=".env",
         case_sensitive=False,
     )
+
+    def validate_production_settings(self) -> None:
+        """Validate that required secrets are configured for non-PoC environments.
+
+        In PoC mode, missing values trigger warnings.
+        In production, missing critical values cause a hard exit.
+        """
+        is_production = self.environment not in ("poc", "dev", "test")
+        errors: list[str] = []
+
+        if not self.cosmos_connection:
+            msg = (
+                "COSMOS_CONNECTION not configured — "
+                "audit trail (EU AI Act) and state persistence are DISABLED."
+            )
+            if is_production:
+                errors.append(msg)
+            else:
+                _config_logger.warning("⚠️  %s", msg)
+
+        if not self.bot_app_id or not self.bot_app_password:
+            msg = (
+                "BOT_APP_ID / BOT_APP_PASSWORD not configured — "
+                "Bot Framework authentication is DISABLED. "
+                "The /api/messages endpoint accepts unauthenticated requests."
+            )
+            if is_production:
+                errors.append(msg)
+            else:
+                _config_logger.warning("⚠️  %s", msg)
+
+        if not self.ai_foundry_endpoint or not self.ai_foundry_key:
+            msg = "AI_FOUNDRY_ENDPOINT / AI_FOUNDRY_KEY not configured — LLM calls will fail."
+            if is_production:
+                errors.append(msg)
+            else:
+                _config_logger.warning("⚠️  %s", msg)
+
+        if not self.blob_connection:
+            msg = "BLOB_CONNECTION not configured — PDF upload will fail."
+            if is_production:
+                errors.append(msg)
+            else:
+                _config_logger.warning("⚠️  %s", msg)
+
+        if errors:
+            for err in errors:
+                _config_logger.critical("FATAL: %s", err)
+            _config_logger.critical(
+                "Production environment requires all critical services configured. "
+                "Set ENVIRONMENT=poc to bypass these checks."
+            )
+            sys.exit(1)
 
 
 settings = Settings()

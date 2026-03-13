@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 
 from app.agent.state import AgentState
 from app.agent.tools.pdf_generator import generate_twi_pdf, extract_title
+from app.config import settings
 from app.services.blob_storage import upload_pdf
 from app.services.cosmos_db import DocumentStore
 
@@ -33,7 +34,7 @@ async def output_node(state: AgentState) -> AgentState:
                     "document_id": uuid.uuid4().hex,
                     "conversation_id": state["conversation_id"],
                     "user_id": state["user_id"],
-                    "tenant_id": state.get("tenant_id", "poc-tenant"),
+                    "tenant_id": state.get("tenant_id") or settings.default_tenant_id,
                     "title": title,
                     "content_type": "twi",
                     "draft_content": state["draft"],
