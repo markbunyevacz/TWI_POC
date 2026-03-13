@@ -208,9 +208,13 @@ async def run_agent(
         )
         result = await graph.ainvoke(initial_state, config)
 
-    # Normalise: ainvoke may return state dict or a snapshot object
-    if hasattr(result, "values"):
-        result = result.values
+    # Normalise: ainvoke returns AddableValuesDict (a dict subclass) or
+    # occasionally a snapshot object with a .values property.
+    if not isinstance(result, dict):
+        if hasattr(result, "values") and not callable(result.values):
+            result = result.values
+        else:
+            result = {}
 
     return result
 

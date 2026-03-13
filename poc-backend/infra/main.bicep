@@ -414,7 +414,7 @@ resource backendApp 'Microsoft.App/containerApps@2023-05-01' = {
             memory: '2Gi'
           }
           env: [
-            { name: 'AI_FOUNDRY_ENDPOINT', value: '${aiFoundry.properties.endpoint}' }
+            { name: 'AI_FOUNDRY_ENDPOINT', value: 'https://${aiFoundry.name}.services.ai.azure.com/models' }
             { name: 'AI_FOUNDRY_KEY', secretRef: 'ai-foundry-key' }
             { name: 'COSMOS_CONNECTION', secretRef: 'cosmos-connection' }
             { name: 'COSMOS_DATABASE', value: '${projectPrefix}-db' }

@@ -104,12 +104,13 @@ jobs:
             --password ${{ secrets.GITHUB_TOKEN }}
 
           TENANT_ID=$(az account show --query tenantId -o tsv)
+          AI_ENDPOINT="https://ai-agentize-poc.services.ai.azure.com/models"
 
           az containerapp update \
             --name ${{ env.CONTAINER_APP }} \
             --resource-group ${{ env.RESOURCE_GROUP }} \
             --image "$IMAGE_TAG" \
-            --set-env-vars "CHANNEL_AUTH_TENANT=$TENANT_ID" \
+            --set-env-vars "CHANNEL_AUTH_TENANT=$TENANT_ID" "AI_FOUNDRY_ENDPOINT=$AI_ENDPOINT" \
             --revision-suffix "gh-${GITHUB_SHA::7}"
 
       - name: Verify deployment health
