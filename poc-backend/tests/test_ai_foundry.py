@@ -10,13 +10,16 @@ class TestGetClient:
     def test_get_client_initializes_with_credentials(self):
         """Client is constructed with endpoint + AzureKeyCredential from settings."""
         import app.services.ai_foundry as mod
+
         original_client = mod._client
         mod._client = None
 
         try:
-            with patch.object(mod, "AsyncChatCompletionsClient") as MockClient, \
-                 patch.object(mod, "AzureKeyCredential") as MockCred, \
-                 patch.object(mod, "settings") as mock_settings:
+            with (
+                patch.object(mod, "AsyncChatCompletionsClient") as MockClient,
+                patch.object(mod, "AzureKeyCredential") as MockCred,
+                patch.object(mod, "settings") as mock_settings,
+            ):
                 mock_settings.ai_foundry_endpoint = "https://test.openai.azure.com"
                 mock_settings.ai_foundry_key = "test-key"
 
@@ -33,13 +36,16 @@ class TestGetClient:
     def test_client_is_singleton(self):
         """Repeated calls return the same client instance."""
         import app.services.ai_foundry as mod
+
         original_client = mod._client
         mod._client = None
 
         try:
-            with patch.object(mod, "AsyncChatCompletionsClient") as MockClient, \
-                 patch.object(mod, "AzureKeyCredential"), \
-                 patch.object(mod, "settings") as mock_settings:
+            with (
+                patch.object(mod, "AsyncChatCompletionsClient") as MockClient,
+                patch.object(mod, "AzureKeyCredential"),
+                patch.object(mod, "settings") as mock_settings,
+            ):
                 mock_settings.ai_foundry_endpoint = "https://test.openai.azure.com"
                 mock_settings.ai_foundry_key = "test-key"
                 MockClient.return_value = MagicMock()
@@ -69,13 +75,16 @@ class TestCallLlm:
         mock_client = MagicMock()
         mock_client.complete = AsyncMock(return_value=mock_response)
 
-        with patch("app.services.ai_foundry._get_client", return_value=mock_client), \
-             patch("app.services.ai_foundry.settings") as mock_settings:
+        with (
+            patch("app.services.ai_foundry._get_client", return_value=mock_client),
+            patch("app.services.ai_foundry.settings") as mock_settings,
+        ):
             mock_settings.ai_model = "gpt-4o"
             mock_settings.ai_temperature = 0.3
             mock_settings.ai_max_tokens = 4000
 
             from app.services.ai_foundry import call_llm
+
             result = await call_llm("Test prompt")
 
         assert result == ("Generated TWI content", 150)
@@ -94,13 +103,16 @@ class TestCallLlm:
         mock_client = MagicMock()
         mock_client.complete = AsyncMock(return_value=mock_response)
 
-        with patch("app.services.ai_foundry._get_client", return_value=mock_client), \
-             patch("app.services.ai_foundry.settings") as mock_settings:
+        with (
+            patch("app.services.ai_foundry._get_client", return_value=mock_client),
+            patch("app.services.ai_foundry.settings") as mock_settings,
+        ):
             mock_settings.ai_model = "gpt-4o"
             mock_settings.ai_temperature = 0.3
             mock_settings.ai_max_tokens = 4000
 
             from app.services.ai_foundry import call_llm
+
             await call_llm("user prompt", system_prompt="system instruction")
 
         call_args = mock_client.complete.call_args
@@ -121,13 +133,16 @@ class TestCallLlm:
         mock_client = MagicMock()
         mock_client.complete = AsyncMock(return_value=mock_response)
 
-        with patch("app.services.ai_foundry._get_client", return_value=mock_client), \
-             patch("app.services.ai_foundry.settings") as mock_settings:
+        with (
+            patch("app.services.ai_foundry._get_client", return_value=mock_client),
+            patch("app.services.ai_foundry.settings") as mock_settings,
+        ):
             mock_settings.ai_model = "gpt-4o"
             mock_settings.ai_temperature = 0.3
             mock_settings.ai_max_tokens = 4000
 
             from app.services.ai_foundry import call_llm
+
             await call_llm("prompt", temperature=0.1, max_tokens=20)
 
         call_args = mock_client.complete.call_args
@@ -140,8 +155,10 @@ class TestCallLlm:
         mock_client = MagicMock()
         mock_client.complete = AsyncMock(side_effect=Exception("API Error"))
 
-        with patch("app.services.ai_foundry._get_client", return_value=mock_client), \
-             patch("app.services.ai_foundry.settings") as mock_settings:
+        with (
+            patch("app.services.ai_foundry._get_client", return_value=mock_client),
+            patch("app.services.ai_foundry.settings") as mock_settings,
+        ):
             mock_settings.ai_model = "gpt-4o"
             mock_settings.ai_temperature = 0.3
             mock_settings.ai_max_tokens = 4000

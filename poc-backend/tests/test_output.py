@@ -12,29 +12,34 @@ def output_state(sample_agent_state, sample_draft):
         "draft": sample_draft,
         "draft_metadata": {"model": "test-model", "revision": 1},
         "revision_count": 1,
-        "approval_timestamp": "2026-02-26T12:00:00Z"
+        "approval_timestamp": "2026-02-26T12:00:00Z",
     }
 
 
 @pytest.mark.asyncio
 async def test_output_node_saves_to_document_store(output_state):
-    with patch("app.agent.nodes.output.generate_twi_pdf", new_callable=AsyncMock) as mock_generate_pdf, \
-         patch("app.agent.nodes.output.upload_pdf", new_callable=AsyncMock) as mock_upload_pdf, \
-         patch("app.agent.nodes.output.DocumentStore") as mock_document_store_class:
-        
+    with (
+        patch(
+            "app.agent.nodes.output.generate_twi_pdf", new_callable=AsyncMock
+        ) as mock_generate_pdf,
+        patch(
+            "app.agent.nodes.output.upload_pdf", new_callable=AsyncMock
+        ) as mock_upload_pdf,
+        patch("app.agent.nodes.output.DocumentStore") as mock_document_store_class,
+    ):
         mock_generate_pdf.return_value = b"fake-pdf-bytes"
         mock_upload_pdf.return_value = "https://fake.url/blob.pdf"
-        
+
         mock_store_instance = mock_document_store_class.return_value
         mock_store_instance.save = AsyncMock()
-        
+
         result = await output_node(output_state)
-        
+
         mock_generate_pdf.assert_called_once()
         mock_upload_pdf.assert_called_once()
         mock_document_store_class.assert_called_once()
         mock_store_instance.save.assert_called_once()
-        
+
         saved_doc = mock_store_instance.save.call_args[0][0]
         assert saved_doc["conversation_id"] == "conv-test-001"
         assert saved_doc["user_id"] == "test-user-001"
@@ -46,7 +51,7 @@ async def test_output_node_saves_to_document_store(output_state):
         assert saved_doc["revision_count"] == 1
         assert "document_id" in saved_doc
         assert saved_doc["approved_by"] == "test-user-001"
-        
+
         assert result["status"] == "completed"
         assert result["pdf_url"] == "https://fake.url/blob.pdf"
         assert result["title"] == "CÍM: CNC-01 gép napi beállítása"

@@ -10,12 +10,15 @@ class TestGetClient:
     def test_client_uses_connection_string(self):
         """_get_client creates a BlobServiceClient from settings.blob_connection."""
         import app.services.blob_storage as mod
+
         original_client = mod._client
         mod._client = None
 
         try:
-            with patch.object(mod, "BlobServiceClient") as MockBSC, \
-                 patch.object(mod, "settings") as mock_settings:
+            with (
+                patch.object(mod, "BlobServiceClient") as MockBSC,
+                patch.object(mod, "settings") as mock_settings,
+            ):
                 mock_settings.blob_connection = "DefaultEndpointsProtocol=https;AccountName=test;AccountKey=key==;EndpointSuffix=core.windows.net"
                 MockBSC.from_connection_string.return_value = MagicMock()
 
@@ -31,12 +34,15 @@ class TestGetClient:
     def test_client_is_singleton(self):
         """Repeated calls return the same client instance."""
         import app.services.blob_storage as mod
+
         original_client = mod._client
         mod._client = None
 
         try:
-            with patch.object(mod, "BlobServiceClient") as MockBSC, \
-                 patch.object(mod, "settings") as mock_settings:
+            with (
+                patch.object(mod, "BlobServiceClient") as MockBSC,
+                patch.object(mod, "settings") as mock_settings,
+            ):
                 mock_settings.blob_connection = "fake-connection"
                 MockBSC.from_connection_string.return_value = MagicMock()
 
@@ -57,7 +63,9 @@ class TestUploadPdf:
         """Successful upload returns a URL containing the blob path and a SAS token."""
         mock_blob_client = MagicMock()
         mock_blob_client.upload_blob = MagicMock()
-        mock_blob_client.url = "https://testaccount.blob.core.windows.net/container/path/file.pdf"
+        mock_blob_client.url = (
+            "https://testaccount.blob.core.windows.net/container/path/file.pdf"
+        )
 
         mock_container_client = MagicMock()
         mock_container_client.get_blob_client.return_value = mock_blob_client
@@ -67,12 +75,20 @@ class TestUploadPdf:
         mock_service_client.account_name = "testaccount"
         mock_service_client.credential.account_key = "dGVzdGtleQ=="
 
-        with patch("app.services.blob_storage._get_client", return_value=mock_service_client), \
-             patch("app.services.blob_storage.settings") as mock_settings, \
-             patch("app.services.blob_storage.generate_blob_sas", return_value="sig=abc123"):
+        with (
+            patch(
+                "app.services.blob_storage._get_client",
+                return_value=mock_service_client,
+            ),
+            patch("app.services.blob_storage.settings") as mock_settings,
+            patch(
+                "app.services.blob_storage.generate_blob_sas", return_value="sig=abc123"
+            ),
+        ):
             mock_settings.blob_container = "test-container"
 
             from app.services.blob_storage import upload_pdf
+
             result = await upload_pdf(b"fake-pdf-bytes", "twi/conv-1/doc.pdf")
 
         assert "testaccount" in result
@@ -93,12 +109,18 @@ class TestUploadPdf:
         mock_service_client.account_name = "test"
         mock_service_client.credential.account_key = "key"
 
-        with patch("app.services.blob_storage._get_client", return_value=mock_service_client), \
-             patch("app.services.blob_storage.settings") as mock_settings, \
-             patch("app.services.blob_storage.generate_blob_sas", return_value="sig=x"):
+        with (
+            patch(
+                "app.services.blob_storage._get_client",
+                return_value=mock_service_client,
+            ),
+            patch("app.services.blob_storage.settings") as mock_settings,
+            patch("app.services.blob_storage.generate_blob_sas", return_value="sig=x"),
+        ):
             mock_settings.blob_container = "c"
 
             from app.services.blob_storage import upload_pdf
+
             await upload_pdf(b"bytes", "path.pdf")
 
         mock_blob_client.upload_blob.assert_called_once()
@@ -118,11 +140,17 @@ class TestUploadPdf:
         mock_service_client.account_name = "mi"
         mock_service_client.credential = MagicMock(spec=[])
 
-        with patch("app.services.blob_storage._get_client", return_value=mock_service_client), \
-             patch("app.services.blob_storage.settings") as mock_settings:
+        with (
+            patch(
+                "app.services.blob_storage._get_client",
+                return_value=mock_service_client,
+            ),
+            patch("app.services.blob_storage.settings") as mock_settings,
+        ):
             mock_settings.blob_container = "c"
 
             from app.services.blob_storage import upload_pdf
+
             result = await upload_pdf(b"bytes", "path.pdf")
 
         assert result == mock_blob_client.url
@@ -139,8 +167,13 @@ class TestUploadPdf:
         mock_service_client = MagicMock()
         mock_service_client.get_container_client.return_value = mock_container_client
 
-        with patch("app.services.blob_storage._get_client", return_value=mock_service_client), \
-             patch("app.services.blob_storage.settings") as mock_settings:
+        with (
+            patch(
+                "app.services.blob_storage._get_client",
+                return_value=mock_service_client,
+            ),
+            patch("app.services.blob_storage.settings") as mock_settings,
+        ):
             mock_settings.blob_container = "c"
 
             from app.services.blob_storage import upload_pdf

@@ -79,7 +79,9 @@ class TestGenerateNode:
         """When revision_feedback is set, the LLM prompt must include the previous draft."""
         captured: list[dict] = []
 
-        async def mock_llm(prompt, system_prompt=None, temperature=None, max_tokens=None):
+        async def mock_llm(
+            prompt, system_prompt=None, temperature=None, max_tokens=None
+        ):
             captured.append({"prompt": prompt})
             return _LLM_RESPONSE, 50
 
@@ -129,7 +131,9 @@ class TestGenerateNode:
         """Generation must use temperature=0.3 per EU AI Act rule."""
         captured: list = []
 
-        async def mock_llm(prompt, system_prompt=None, temperature=None, max_tokens=None):
+        async def mock_llm(
+            prompt, system_prompt=None, temperature=None, max_tokens=None
+        ):
             captured.append(temperature)
             return _LLM_RESPONSE, 50
 
@@ -147,7 +151,9 @@ class TestIntentNodeTemperature:
         """Intent classification must use temperature=0.1."""
         captured: list = []
 
-        async def mock_llm(prompt, system_prompt=None, temperature=None, max_tokens=None):
+        async def mock_llm(
+            prompt, system_prompt=None, temperature=None, max_tokens=None
+        ):
             captured.append(temperature)
             return "generate_twi", 10
 
