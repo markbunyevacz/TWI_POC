@@ -262,9 +262,7 @@ class MongoDBSaver(BaseCheckpointSaver):
             checkpoint: Checkpoint = self._de(doc["checkpoint"])
             metadata: CheckpointMetadata = self._de(doc["metadata"])
 
-            if filter and not all(
-                metadata.get(k) == v for k, v in filter.items()
-            ):
+            if filter and not all(metadata.get(k) == v for k, v in filter.items()):
                 continue
 
             channel_values: dict[str, Any] = {}
@@ -333,9 +331,7 @@ class MongoDBSaver(BaseCheckpointSaver):
             }
         ).sort("idx", ASCENDING)
         async for doc in cursor:
-            writes.append(
-                (doc["task_id"], doc["channel"], self._de(doc["value"]))
-            )
+            writes.append((doc["task_id"], doc["channel"], self._de(doc["value"])))
         return writes
 
 

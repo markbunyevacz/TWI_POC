@@ -52,9 +52,7 @@ class TestAgetTuple:
                 "parent_checkpoint_id": None,
             }
         )
-        saver.writes_collection.find = MagicMock(
-            return_value=_async_cursor_mock([])
-        )
+        saver.writes_collection.find = MagicMock(return_value=_async_cursor_mock([]))
 
         result = await saver.aget_tuple(_config())
         assert result is not None
@@ -67,7 +65,12 @@ class TestAgetTuple:
     async def test_returns_tuple_with_blobs_and_parent(self):
         saver = _make_saver()
 
-        checkpoint_data = {"id": "cp-2", "channel_versions": {"messages": "1"}, "v": 1, "ts": "t"}
+        checkpoint_data = {
+            "id": "cp-2",
+            "channel_versions": {"messages": "1"},
+            "v": 1,
+            "ts": "t",
+        }
         ser_cp = saver._ser(checkpoint_data)
         ser_meta = saver._ser({"source": "loop", "step": 1})
 
@@ -82,9 +85,7 @@ class TestAgetTuple:
                 "parent_checkpoint_id": "cp-1",
             }
         )
-        saver.writes_collection.find = MagicMock(
-            return_value=_async_cursor_mock([])
-        )
+        saver.writes_collection.find = MagicMock(return_value=_async_cursor_mock([]))
 
         result = await saver.aget_tuple(_config())
         assert result is not None
@@ -190,9 +191,7 @@ class TestAlist:
             ]
         )
         saver.checkpoints.find = MagicMock(return_value=_sortable_cursor(mock_cursor))
-        saver.writes_collection.find = MagicMock(
-            return_value=_async_cursor_mock([])
-        )
+        saver.writes_collection.find = MagicMock(return_value=_async_cursor_mock([]))
 
         results = []
         async for item in saver.alist(_config()):
