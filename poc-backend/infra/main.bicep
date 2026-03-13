@@ -420,6 +420,7 @@ resource backendApp 'Microsoft.App/containerApps@2023-05-01' = {
             { name: 'COSMOS_DATABASE', value: '${projectPrefix}-db' }
             { name: 'BOT_APP_ID', value: botAppId }
             { name: 'BOT_APP_PASSWORD', secretRef: 'bot-app-password' }
+            { name: 'CHANNEL_AUTH_TENANT', value: subscription().tenantId }
             { name: 'BLOB_CONNECTION', secretRef: 'blob-connection' }
             { name: 'BLOB_CONTAINER', value: 'pdf-output' }
             { name: 'AI_MODEL', value: aiModel }

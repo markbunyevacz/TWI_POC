@@ -23,6 +23,7 @@ class Settings(BaseSettings):
     # Bot Framework
     bot_app_id: str = ""
     bot_app_password: str = ""
+    channel_auth_tenant: str = ""
 
     # Telegram (optional)
     telegram_bot_token: str = ""

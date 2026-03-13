@@ -103,10 +103,13 @@ jobs:
             --username ${{ github.actor }} \
             --password ${{ secrets.GITHUB_TOKEN }}
 
+          TENANT_ID=$(az account show --query tenantId -o tsv)
+
           az containerapp update \
             --name ${{ env.CONTAINER_APP }} \
             --resource-group ${{ env.RESOURCE_GROUP }} \
             --image "$IMAGE_TAG" \
+            --set-env-vars "CHANNEL_AUTH_TENANT=$TENANT_ID" \
             --revision-suffix "gh-${GITHUB_SHA::7}"
 
       - name: Verify deployment health
