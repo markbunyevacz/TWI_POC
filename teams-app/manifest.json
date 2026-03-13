@@ -2,7 +2,7 @@
   "$schema": "https://developer.microsoft.com/en-us/json-schemas/teams/v1.17/MicrosoftTeams.schema.json",
   "manifestVersion": "1.17",
   "version": "0.1.0",
-  "id": "{{BOT_APP_ID}}",
+  "id": "6c62ae9e-311e-413e-aa4d-509b31c9d02e",
   "developer": {
     "name": "agentize.eu",
     "websiteUrl": "https://agentize.eu",
@@ -24,7 +24,7 @@
   "accentColor": "#1B4F72",
   "bots": [
     {
-      "botId": "{{BOT_APP_ID}}",
+      "botId": "6c62ae9e-311e-413e-aa4d-509b31c9d02e",
       "scopes": ["personal", "team", "groupChat"],
       "supportsFiles": false,
       "commandLists": [
@@ -45,7 +45,7 @@
     }
   ],
   "permissions": ["identity", "messageTeamMembers"],
-  "validDomains": ["{{BACKEND_FQDN}}"],
+  "validDomains": ["ca-agentize-poc-backend.wonderfulbay-1d97b0a2.swedencentral.azurecontainerapps.io"],
   "localizationInfo": {
     "defaultLanguageTag": "hu",
     "additionalLanguages": [
