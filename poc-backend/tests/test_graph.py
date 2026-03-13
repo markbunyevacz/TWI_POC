@@ -13,12 +13,12 @@ from app.agent.graph import (
     _build_resume_state,
 )
 from app.agent.nodes.audit import _resolve_event_type
-from langgraph.graph import END
 
 
 # ---------------------------------------------------------------------------
 # Shared state fixture helper
 # ---------------------------------------------------------------------------
+
 
 def _make_state(**overrides) -> dict:
     base = {

@@ -2,7 +2,6 @@
 
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
-from datetime import datetime, timezone
 
 
 class TestTelegramHelpers:
@@ -11,7 +10,7 @@ class TestTelegramHelpers:
     def test_is_telegram_channel(self):
         """Test Telegram channel detection."""
         from app.bot.bot_handler import _is_telegram_channel
-        
+
         assert _is_telegram_channel("telegram") is True
         assert _is_telegram_channel("Telegram") is True
         assert _is_telegram_channel("TELEGRAM") is True
@@ -22,16 +21,16 @@ class TestTelegramHelpers:
     def test_format_telegram_review(self):
         """Test Telegram review message formatting."""
         from app.bot.bot_handler import _format_telegram_review
-        
+
         draft = "## CNC-01 beállítása\n\n1. Kapcsold be"
         metadata = {
             "title": "CNC-01 gép beállítása",
             "model": "mistral-large",
-            "generated_at": "2026-03-06"
+            "generated_at": "2026-03-06",
         }
-        
+
         result = _format_telegram_review(draft, metadata)
-        
+
         assert "📋 *CNC-01 gép beállítása*" in result
         assert "mistral-large" in result
         assert "2026-03-06" in result
@@ -43,11 +42,11 @@ class TestTelegramHelpers:
     def test_format_telegram_approval(self):
         """Test Telegram approval message formatting."""
         from app.bot.bot_handler import _format_telegram_approval
-        
+
         metadata = {"title": "Végleges dokumentum"}
-        
+
         result = _format_telegram_approval("draft content", metadata)
-        
+
         assert "📄 *Végleges dokumentum*" in result
         assert "Igen" in result
         assert "Nem" in result
@@ -55,15 +54,13 @@ class TestTelegramHelpers:
     def test_format_telegram_result(self):
         """Test Telegram result message formatting."""
         from app.bot.bot_handler import _format_telegram_result
-        
+
         metadata = {"approved_by": "user-123"}
-        
+
         result = _format_telegram_result(
-            "https://example.com/file.pdf",
-            "CNC-01 beállítás",
-            metadata
+            "https://example.com/file.pdf", "CNC-01 beállítás", metadata
         )
-        
+
         assert "✅ *Dokumentum elkészült!*" in result
         assert "CNC-01 beállítás" in result
         assert "user-123" in result
@@ -102,16 +99,21 @@ class TestBotHandler:
             mock_store = MagicMock()
             mock_store.get_or_create = AsyncMock()
             MockStore.return_value = mock_store
-            
+
             from app.bot.bot_handler import AgentizeBotHandler
+
             handler = AgentizeBotHandler()
-            
-            with patch.object(handler, "_get_graph", new_callable=AsyncMock) as mock_get_graph:
+
+            with patch.object(
+                handler, "_get_graph", new_callable=AsyncMock
+            ) as mock_get_graph:
                 mock_get_graph.return_value = MagicMock()
-                with patch("app.bot.bot_handler.run_agent", new_callable=AsyncMock) as mock_run:
+                with patch(
+                    "app.bot.bot_handler.run_agent", new_callable=AsyncMock
+                ) as mock_run:
                     mock_run.return_value = {"status": "clarification_needed"}
                     await handler.on_message_activity(mock_turn_context)
-            
+
             mock_store.get_or_create.assert_called_once()
 
     @pytest.mark.asyncio
@@ -135,7 +137,9 @@ class TestBotHandler:
             mock_send.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_handle_text_message_telegram_routes_correctly(self, mock_telegram_context):
+    async def test_handle_text_message_telegram_routes_correctly(
+        self, mock_telegram_context
+    ):
         """Test that Telegram messages are routed to Telegram handler."""
         from app.bot.bot_handler import AgentizeBotHandler
 
@@ -144,13 +148,17 @@ class TestBotHandler:
         handler._handle_telegram_response = AsyncMock()
 
         with patch("app.bot.bot_handler.run_agent", new_callable=AsyncMock) as mock_run:
-            mock_run.return_value = {"status": "review_needed", "draft": "test", "draft_metadata": {}}
+            mock_run.return_value = {
+                "status": "review_needed",
+                "draft": "test",
+                "draft_metadata": {},
+            }
             await handler._handle_text_message(
                 mock_telegram_context,
                 "test message",
                 "conv-123",
                 "user-456",
-                "telegram"
+                "telegram",
             )
 
         handler._handle_telegram_response.assert_called_once()
@@ -212,55 +220,51 @@ class TestBotHandler:
     async def test_handle_telegram_text_unknown_command(self):
         """Test handling unknown command from Telegram."""
         from app.bot.bot_handler import AgentizeBotHandler
-        
+
         handler = AgentizeBotHandler()
-        
+
         turn_context = MagicMock()
         turn_context.send_activity = AsyncMock()
-        
+
         await handler._handle_telegram_text(
-            turn_context,
-            "random text",
-            "conv-123",
-            "user-456"
+            turn_context, "random text", "conv-123", "user-456"
         )
-        
+
         call_args = [str(c) for c in turn_context.send_activity.call_args_list]
-        assert any("parancsokat" in str(c) or "help" in str(c).lower() for c in call_args)
+        assert any(
+            "parancsokat" in str(c) or "help" in str(c).lower() for c in call_args
+        )
 
     @pytest.mark.asyncio
     async def test_handle_card_action_approve_draft_telegram(self):
         """Test approve_draft action handling for Telegram."""
         from app.bot.bot_handler import AgentizeBotHandler
-        
+
         handler = AgentizeBotHandler()
         handler._get_graph = AsyncMock(return_value=MagicMock())
-        
+
         turn_context = MagicMock()
         turn_context.activity.channel_id = "telegram"
         turn_context.send_activity = AsyncMock()
-        
+
         value = {
             "action": "approve_draft",
             "draft": "test draft",
-            "metadata": {"title": "Test"}
+            "metadata": {"title": "Test"},
         }
-        
+
         with patch("app.bot.bot_handler.run_agent", new_callable=AsyncMock) as mock_run:
             mock_run.return_value = {
                 "draft": "content",
                 "draft_metadata": {},
                 "pdf_url": "https://example.com/pdf",
-                "title": "Test Doc"
+                "title": "Test Doc",
             }
-            
+
             await handler._handle_card_action(
-                turn_context,
-                value,
-                "conv-123",
-                "user-456"
+                turn_context, value, "conv-123", "user-456"
             )
-        
+
         turn_context.send_activity.assert_called()
 
     @pytest.mark.asyncio
@@ -481,23 +485,19 @@ class TestBotHandlerEdgeCases:
     async def test_run_agent_exception_handling(self):
         """Test that exceptions in run_agent are caught and handled."""
         from app.bot.bot_handler import AgentizeBotHandler
-        
+
         handler = AgentizeBotHandler()
         handler._get_graph = AsyncMock(return_value=MagicMock())
-        
+
         turn_context = MagicMock()
         turn_context.send_activity = AsyncMock()
-        
+
         with patch("app.bot.bot_handler.run_agent", new_callable=AsyncMock) as mock_run:
             mock_run.side_effect = Exception("Test error")
-            
+
             await handler._handle_text_message(
-                turn_context,
-                "test",
-                "conv-123",
-                "user-456",
-                "msteams"
+                turn_context, "test", "conv-123", "user-456", "msteams"
             )
-        
+
         call_args = [str(c) for c in turn_context.send_activity.call_args_list]
         assert any("Hiba" in str(c) for c in call_args)

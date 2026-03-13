@@ -19,7 +19,7 @@ def _get_db() -> AsyncIOMotorDatabase:
                 "Cosmos DB connection string not configured. "
                 "Set COSMOS_CONNECTION environment variable."
             )
-        _client = AsyncIOMotorClient(settings.cosmos_connection)
+        _client = AsyncIOMotorClient(settings.cosmos_connection, retryWrites=False)
         _db = _client[settings.cosmos_database]
     return _db
 

@@ -32,7 +32,7 @@ def _get_db() -> AsyncIOMotorDatabase:
     """Get or create the MongoDB client singleton."""
     global _client, _db
     if _db is None:
-        _client = AsyncIOMotorClient(settings.cosmos_connection)
+        _client = AsyncIOMotorClient(settings.cosmos_connection, retryWrites=False)
         _db = _client[settings.cosmos_database]
     return _db
 
