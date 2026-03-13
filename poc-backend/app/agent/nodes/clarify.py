@@ -47,7 +47,7 @@ async def clarify_node(state: AgentState) -> AgentState:
             "llm_tokens_input": current_in + in_tokens,
             "llm_tokens_output": current_out + out_tokens,
         }
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001
         logger.error("Clarification LLM call failed: %s", exc, exc_info=True)
         return {
             **state,

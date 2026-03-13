@@ -73,7 +73,7 @@ async def process_input_node(state: AgentState) -> AgentState:
     extra_out = 0
     try:
         llm_fields, extra_in, extra_out = await _llm_extract(message)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001
         logger.warning("LLM extraction failed, using regex only: %s", exc)
 
     processed = {
