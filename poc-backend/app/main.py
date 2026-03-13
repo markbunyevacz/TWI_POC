@@ -37,7 +37,6 @@ _adapter_settings = BotFrameworkAdapterSettings(
     app_id=settings.bot_app_id,
     app_password=settings.bot_app_password,
     channel_auth_tenant=settings.channel_auth_tenant or None,
-    app_type="SingleTenant" if settings.channel_auth_tenant else "MultiTenant",
 )
 adapter = BotFrameworkAdapter(_adapter_settings)
 
