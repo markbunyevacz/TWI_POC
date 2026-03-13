@@ -26,7 +26,7 @@ def _format_telegram_review(draft: str, metadata: dict) -> str:
     title = metadata.get("title", "TWI Munkautasítás")
     model = metadata.get("model", "N/A")
     generated_at = metadata.get("generated_at", "N/A")
-    
+
     text = f"📋 *{title}*\n\n"
     text += f"_Model: {model} | Generated: {generated_at}_\n\n"
     text += f"```\n{draft[:500]}"
@@ -43,7 +43,7 @@ def _format_telegram_review(draft: str, metadata: dict) -> str:
 def _format_telegram_approval(draft: str, metadata: dict) -> str:
     """Format final approval request for Telegram."""
     title = metadata.get("title", "Véglegesítés")
-    
+
     text = f"📄 *{title}*\n\n"
     text += "A dokumentum elkészült! Véglegesítsem és PDF-et generáljak?\n\n"
     text += "Kérlek válaszolj:\n"
@@ -68,11 +68,12 @@ class AgentizeBotHandler(ActivityHandler):
         self.graph = None
         self.conversation_store = ConversationStore()
         self._pending_revision: dict[str, bool] = {}
-    
+
     async def _get_graph(self):
         """Lazy initialization of the graph."""
         if self.graph is None:
             from app.agent.graph import get_graph
+
             self.graph = await get_graph()
         return self.graph
 
@@ -115,7 +116,9 @@ class AgentizeBotHandler(ActivityHandler):
                 turn_context, text, conversation_id, user_id, channel_id
             )
 
-    async def on_members_added_activity(self, members_added, turn_context: TurnContext) -> None:
+    async def on_members_added_activity(
+        self, members_added, turn_context: TurnContext
+    ) -> None:
         """Send a welcome card when the bot is added to a conversation."""
         for member in members_added:
             if member.id != turn_context.activity.recipient.id:
@@ -135,7 +138,7 @@ class AgentizeBotHandler(ActivityHandler):
         channel_id: str,
     ) -> None:
         is_telegram = _is_telegram_channel(channel_id)
-        
+
         await turn_context.send_activity("⏳ Feldolgozom a kérésedet...")
 
         try:
@@ -152,7 +155,7 @@ class AgentizeBotHandler(ActivityHandler):
             return
 
         status = result.get("status", "")
-        
+
         # Handle Telegram channel - no Adaptive Cards support
         if is_telegram:
             await self._handle_telegram_response(turn_context, result, status)
@@ -178,11 +181,11 @@ class AgentizeBotHandler(ActivityHandler):
 
         else:
             await turn_context.send_activity(f"Állapot: {status}")
-    
+
     # ------------------------------------------------------------------
     # Telegram-specific response handlers (no Adaptive Cards)
     # ------------------------------------------------------------------
-    
+
     async def _handle_telegram_response(
         self,
         turn_context: TurnContext,
@@ -196,25 +199,25 @@ class AgentizeBotHandler(ActivityHandler):
                 result.get("draft_metadata", {}),
             )
             await turn_context.send_activity(text)
-            
+
         elif status == "clarification_needed":
             clarify_msg = (
                 "Kérlek pontosítsd a kérésedet. Például: "
                 '"Készíts egy TWI utasítást a CNC-01 gép napi karbantartásáról."'
             )
             await turn_context.send_activity(clarify_msg)
-            
+
         elif status == "error":
             msg = result.get("message", "Ismeretlen hiba")
             await turn_context.send_activity(f"❌ Hiba: {msg}")
-            
+
         else:
             await turn_context.send_activity(f"Állapot: {status}")
 
     # ------------------------------------------------------------------
     # Telegram text response handler (Igen/Nem)
     # ------------------------------------------------------------------
-    
+
     async def _handle_telegram_text(
         self,
         turn_context: TurnContext,
@@ -252,7 +255,16 @@ class AgentizeBotHandler(ActivityHandler):
             return
 
         # Check for approval responses
-        if text_lower in ["igen", "yes", "y", "i", "elfogadas", "elfogad", "approve", "approved"]:
+        if text_lower in [
+            "igen",
+            "yes",
+            "y",
+            "i",
+            "elfogadas",
+            "elfogad",
+            "approve",
+            "approved",
+        ]:
             # Final approval → resume graph → PDF generation.
             # as_node="approve" so the graph skips the second interrupt.
             await turn_context.send_activity("⏳ PDF generalas folyamatban...")
@@ -282,9 +294,17 @@ class AgentizeBotHandler(ActivityHandler):
                 metadata,
             )
             await turn_context.send_activity(text)
-            
+
         # Check for rejection responses
-        elif text_lower in ["nem", "no", "n", "elutasitas", "elutasit", "reject", "rejected"]:
+        elif text_lower in [
+            "nem",
+            "no",
+            "n",
+            "elutasitas",
+            "elutasit",
+            "reject",
+            "rejected",
+        ]:
             await turn_context.send_activity(
                 "🗑️ Elvettem a vazlatot. Uj keressel indithatsz ujat."
             )
@@ -299,14 +319,14 @@ class AgentizeBotHandler(ActivityHandler):
                 )
             except Exception as exc:
                 logger.error("Rejection audit failed: %s", exc, exc_info=True)
-            
+
         # Check for revision requests
         elif text_lower in ["modositas", "change", "modify", "revise"]:
             self._pending_revision[conversation_id] = True
             await turn_context.send_activity(
                 "Kerlek ird le a modositasi kereseidet a dokumentumhoz:"
             )
-            
+
         else:
             # Not a recognized command - explain options
             help_text = (
@@ -352,10 +372,10 @@ class AgentizeBotHandler(ActivityHandler):
                     logger.error("Agent output error: %s", exc, exc_info=True)
                     await turn_context.send_activity(f"❌ Hiba: {exc}")
                     return
-                
+
                 metadata = result.get("draft_metadata", {})
                 metadata["approved_by"] = user_id
-                
+
                 text = _format_telegram_result(
                     result.get("pdf_url", "#"),
                     result.get("title", "TWI Munkautasítás"),

@@ -19,9 +19,7 @@ class TWIDocument(BaseModel):
     pdf_blob_name: str = Field(
         ..., description="Blob path: twi/{conversation_id}/{uuid}.pdf"
     )
-    pdf_url: Optional[str] = Field(
-        None, description="SAS URL with 24h expiry"
-    )
+    pdf_url: Optional[str] = Field(None, description="SAS URL with 24h expiry")
     llm_model: str = "gpt-4o"
     revision_count: int = 0
     status: str = "approved"

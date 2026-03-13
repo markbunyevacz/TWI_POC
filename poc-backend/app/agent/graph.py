@@ -27,16 +27,22 @@ async def _get_checkpointer():
         # Try to use MongoDB checkpointer for persistence
         try:
             from app.agent.mongodb_checkpointer import create_mongodb_checkpointer
+
             # Check if Cosmos connection is configured
             from app.config import settings
+
             if settings.cosmos_connection:
                 _checkpointer = await create_mongodb_checkpointer()
                 logger.info("Using MongoDB checkpointer for persistent state")
             else:
-                logger.warning("Cosmos DB not configured - using in-memory checkpointer")
+                logger.warning(
+                    "Cosmos DB not configured - using in-memory checkpointer"
+                )
                 _checkpointer = MemorySaver()
         except Exception as exc:
-            logger.warning(f"Failed to initialize MongoDB checkpointer: {exc}. Using MemorySaver.")
+            logger.warning(
+                f"Failed to initialize MongoDB checkpointer: {exc}. Using MemorySaver."
+            )
             _checkpointer = MemorySaver()
     return _checkpointer
 
@@ -47,8 +53,8 @@ def should_generate(state: AgentState) -> str:
     if intent in ("generate_twi", "edit_twi"):
         return "process_input"
     if intent == "question":
-        return "generate"   # Simple Q&A — skip structured input processing
-    return "clarify"        # Unknown intent — ask for clarification
+        return "generate"  # Simple Q&A — skip structured input processing
+    return "clarify"  # Unknown intent — ask for clarification
 
 
 def after_review(state: AgentState) -> str:
@@ -64,7 +70,7 @@ def after_review(state: AgentState) -> str:
 def after_revision(state: AgentState) -> str:
     """Route after revision — hard-cap at 3 revision rounds."""
     if state.get("revision_count", 0) >= 3:
-        return "approve"   # Force final approval after max revisions
+        return "approve"  # Force final approval after max revisions
     return "regenerate"
 
 

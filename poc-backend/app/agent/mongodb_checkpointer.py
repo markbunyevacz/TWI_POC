@@ -39,7 +39,7 @@ def _get_db() -> AsyncIOMotorDatabase:
 
 class MongoDBSaver(BaseCheckpointSaver):
     """MongoDB-backed checkpoint saver for LangGraph using Cosmos DB (MongoDB API).
-    
+
     This implements the BaseCheckpointSaver interface required by LangGraph
     for persistent state management across container restarts and scale-out.
     """
@@ -47,40 +47,39 @@ class MongoDBSaver(BaseCheckpointSaver):
     def __init__(self, collection_name: str = "agent_state") -> None:
         """Initialize the MongoDB checkpointer."""
         self.collection = _get_db()[collection_name]
-    
+
     async def _ensure_indexes(self) -> None:
         """Create indexes for efficient checkpoint queries."""
         await self.collection.create_index(
             [("thread_id", ASCENDING), ("checkpoint_id", ASCENDING)],
             unique=True,
-            name="idx_thread_checkpoint"
+            name="idx_thread_checkpoint",
         )
         await self.collection.create_index(
             [("thread_id", ASCENDING), ("created_at", DESCENDING)],
-            name="idx_thread_created"
+            name="idx_thread_created",
         )
 
     async def get(self, config: RunnableConfig) -> Checkpoint | None:
         """Retrieve a checkpoint by config."""
         thread_id = config.get("configurable", {}).get("thread_id")
         checkpoint_id = config.get("configurable", {}).get("checkpoint_id")
-        
+
         if not thread_id:
             return None
-            
+
         query = {"thread_id": thread_id}
         if checkpoint_id:
             query["checkpoint_id"] = checkpoint_id
         else:
             # Get latest checkpoint if no checkpoint_id specified
             doc = await self.collection.find_one(
-                {"thread_id": thread_id},
-                sort=[("created_at", DESCENDING)]
+                {"thread_id": thread_id}, sort=[("created_at", DESCENDING)]
             )
             if doc:
                 return self._doc_to_checkpoint(doc)
             return None
-        
+
         doc = await self.collection.find_one(query)
         if doc:
             return self._doc_to_checkpoint(doc)
@@ -103,9 +102,9 @@ class MongoDBSaver(BaseCheckpointSaver):
         thread_id = config.get("configurable", {}).get("thread_id")
         if not thread_id:
             raise ValueError("thread_id is required in config")
-        
+
         checkpoint_id = checkpoint.get("id")
-        
+
         doc = {
             "thread_id": thread_id,
             "checkpoint_id": checkpoint_id,
@@ -114,13 +113,13 @@ class MongoDBSaver(BaseCheckpointSaver):
             "created_at": datetime.now(timezone.utc),
             "parent_checkpoint_id": config.get("configurable", {}).get("checkpoint_id"),
         }
-        
+
         await self.collection.update_one(
             {"thread_id": thread_id, "checkpoint_id": checkpoint_id},
             {"$set": doc},
-            upsert=True
+            upsert=True,
         )
-        
+
         return {
             "configurable": {
                 **config.get("configurable", {}),
@@ -139,45 +138,49 @@ class MongoDBSaver(BaseCheckpointSaver):
         thread_id = config.get("configurable", {}).get("thread_id")
         if not thread_id:
             return []
-        
+
         query = {"thread_id": thread_id}
-        
+
         if before:
             before_checkpoint_id = before.get("configurable", {}).get("checkpoint_id")
             if before_checkpoint_id:
                 query["checkpoint_id"] = {"$lt": before_checkpoint_id}
-        
+
         cursor = self.collection.find(query).sort("created_at", DESCENDING).limit(limit)
-        
+
         checkpoints = []
         async for doc in cursor:
             # Get parent checkpoint
             parent_config = None
             if doc.get("parent_checkpoint_id"):
-                parent_doc = await self.collection.find_one({
-                    "thread_id": thread_id,
-                    "checkpoint_id": doc["parent_checkpoint_id"]
-                })
+                parent_doc = await self.collection.find_one(
+                    {
+                        "thread_id": thread_id,
+                        "checkpoint_id": doc["parent_checkpoint_id"],
+                    }
+                )
                 if parent_doc:
                     parent_config = {
                         "configurable": {
                             "thread_id": thread_id,
-                            "checkpoint_id": parent_doc["checkpoint_id"]
+                            "checkpoint_id": parent_doc["checkpoint_id"],
                         }
                     }
-            
-            checkpoints.append(CheckpointTuple(
-                config={
-                    "configurable": {
-                        "thread_id": thread_id,
-                        "checkpoint_id": doc["checkpoint_id"]
-                    }
-                },
-                checkpoint=self._doc_to_checkpoint(doc),
-                parent_config=parent_config,
-                metadata=doc.get("metadata", {})
-            ))
-        
+
+            checkpoints.append(
+                CheckpointTuple(
+                    config={
+                        "configurable": {
+                            "thread_id": thread_id,
+                            "checkpoint_id": doc["checkpoint_id"],
+                        }
+                    },
+                    checkpoint=self._doc_to_checkpoint(doc),
+                    parent_config=parent_config,
+                    metadata=doc.get("metadata", {}),
+                )
+            )
+
         return checkpoints
 
     async def get_writes(
@@ -192,11 +195,11 @@ class MongoDBSaver(BaseCheckpointSaver):
     def _doc_to_checkpoint(self, doc: dict) -> Checkpoint:
         """Convert a MongoDB document to a Checkpoint."""
         checkpoint = doc.get("checkpoint", {})
-        
+
         # Ensure the checkpoint has an id
         if "id" not in checkpoint:
             checkpoint["id"] = doc.get("checkpoint_id", "")
-        
+
         return checkpoint
 
 

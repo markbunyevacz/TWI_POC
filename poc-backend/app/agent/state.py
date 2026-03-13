@@ -7,11 +7,11 @@ class AgentState(TypedDict):
     user_id: str
     tenant_id: str
     conversation_id: str
-    channel: str          # "msteams" | "telegram"
+    channel: str  # "msteams" | "telegram"
     message: str
 
     # Processing
-    intent: Optional[str]          # "generate_twi" | "edit_twi" | "question" | "unknown"
+    intent: Optional[str]  # "generate_twi" | "edit_twi" | "question" | "unknown"
     processed_input: Optional[dict]
     draft: Optional[str]
     draft_metadata: Optional[dict]  # {model, generated_at, revision}

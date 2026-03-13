@@ -160,7 +160,10 @@ def create_result_card(pdf_url: str, document_title: str, metadata: dict) -> dic
                     {"title": "Cím:", "value": document_title or "TWI Munkautasítás"},
                     {"title": "Formátum:", "value": "PDF"},
                     {"title": "Modell:", "value": metadata.get("model", "N/A")},
-                    {"title": "Jóváhagyta:", "value": metadata.get("approved_by", "N/A")},
+                    {
+                        "title": "Jóváhagyta:",
+                        "value": metadata.get("approved_by", "N/A"),
+                    },
                 ],
             },
         ],
@@ -199,7 +202,7 @@ def create_welcome_card() -> dict:
             {
                 "type": "TextBlock",
                 "text": (
-                    "Példa: \"Készíts egy TWI utasítást a CNC-01 gép beállításáról\""
+                    'Példa: "Készíts egy TWI utasítást a CNC-01 gép beállításáról"'
                 ),
                 "wrap": True,
                 "isSubtle": True,

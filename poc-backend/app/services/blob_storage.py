@@ -38,7 +38,7 @@ async def upload_pdf(pdf_bytes: bytes, blob_name: str) -> str:
     logger.info("PDF uploaded: blob_name=%s", blob_name)
 
     account_name: str = client.account_name or ""
-    
+
     # Get account key for SAS token generation
     # Handle different credential types (account key, SAS token, managed identity)
     try:

@@ -35,9 +35,7 @@ _TWI_GENERATE_PROMPT = (
     "Generáld a TWI utasítást a megadott formátumban."
 )
 
-_EU_AI_ACT_LABEL = (
-    "⚠️ AI által generált tartalom — emberi felülvizsgálat szükséges."
-)
+_EU_AI_ACT_LABEL = "⚠️ AI által generált tartalom — emberi felülvizsgálat szükséges."
 
 
 def _now_iso() -> str:

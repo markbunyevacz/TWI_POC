@@ -45,9 +45,8 @@ async def generate_twi_pdf(
     # Markdown → HTML (supports fenced code blocks and tables)
     content_html = md.markdown(content, extensions=["tables", "fenced_code"])
 
-    approved_at = (
-        approval_timestamp
-        or datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+    approved_at = approval_timestamp or datetime.now(timezone.utc).strftime(
+        "%Y-%m-%d %H:%M UTC"
     )
 
     template = _template_env.get_template("twi_template.html")

@@ -28,23 +28,29 @@ async def output_node(state: AgentState) -> AgentState:
 
         try:
             doc_store = DocumentStore()
-            await doc_store.save({
-                "document_id": uuid.uuid4().hex,
-                "conversation_id": state["conversation_id"],
-                "user_id": state["user_id"],
-                "tenant_id": state.get("tenant_id", "poc-tenant"),
-                "title": title,
-                "content_type": "twi",
-                "draft_content": state["draft"],
-                "pdf_blob_name": blob_name,
-                "pdf_url": pdf_url,
-                "llm_model": state.get("draft_metadata", {}).get("model", "gpt-4o"),
-                "revision_count": state.get("revision_count", 0),
-                "status": "approved",
-                "approved_at": state.get("approval_timestamp") or datetime.now(timezone.utc).isoformat(),
-                "approved_by": state["user_id"]
-            })
-            logger.info("Document saved to Cosmos DB: conversation_id=%s", state["conversation_id"])
+            await doc_store.save(
+                {
+                    "document_id": uuid.uuid4().hex,
+                    "conversation_id": state["conversation_id"],
+                    "user_id": state["user_id"],
+                    "tenant_id": state.get("tenant_id", "poc-tenant"),
+                    "title": title,
+                    "content_type": "twi",
+                    "draft_content": state["draft"],
+                    "pdf_blob_name": blob_name,
+                    "pdf_url": pdf_url,
+                    "llm_model": state.get("draft_metadata", {}).get("model", "gpt-4o"),
+                    "revision_count": state.get("revision_count", 0),
+                    "status": "approved",
+                    "approved_at": state.get("approval_timestamp")
+                    or datetime.now(timezone.utc).isoformat(),
+                    "approved_by": state["user_id"],
+                }
+            )
+            logger.info(
+                "Document saved to Cosmos DB: conversation_id=%s",
+                state["conversation_id"],
+            )
         except Exception as exc:
             # PDF was uploaded successfully — log the DB failure but don't lose the PDF URL
             logger.error(

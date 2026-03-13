@@ -79,7 +79,9 @@ class AuditStore:
             return
         entry["created_at"] = datetime.now(timezone.utc)
         await self.collection.insert_one(entry)
-        logger.info("Audit log entry saved: conversation_id=%s", entry.get("conversation_id"))
+        logger.info(
+            "Audit log entry saved: conversation_id=%s", entry.get("conversation_id")
+        )
 
 
 class DocumentStore:
