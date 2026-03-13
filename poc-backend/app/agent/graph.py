@@ -4,7 +4,6 @@ from langgraph.graph import StateGraph, END
 from langgraph.checkpoint.memory import MemorySaver
 
 from app.agent.state import AgentState
-from app.config import settings
 from app.agent.nodes.intent import intent_node
 from app.agent.nodes.process_input import process_input_node
 from app.agent.nodes.generate import generate_node

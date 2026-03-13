@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 from botbuilder.core import ActivityHandler, TurnContext, CardFactory
 from botbuilder.schema import Activity, ActivityTypes
 
-from app.agent.graph import get_graph, run_agent
+from app.agent.graph import run_agent
 from app.bot.adaptive_cards import (
     create_review_card,
     create_approval_card,
@@ -55,7 +55,7 @@ def _format_telegram_approval(draft: str, metadata: dict) -> str:
 def _format_telegram_result(pdf_url: str, document_title: str, metadata: dict) -> str:
     """Format result message for Telegram."""
     approved_by = metadata.get("approved_by", "Ismeretlen")
-    text = f"✅ *Dokumentum elkészült!*\n\n"
+    text = "✅ *Dokumentum elkészült!*\n\n"
     text += f"📄 *{document_title}*\n\n"
     text += f"👤 Jóváhagyta: {approved_by}\n"
     text += f"📥 Letöltés: {pdf_url}"

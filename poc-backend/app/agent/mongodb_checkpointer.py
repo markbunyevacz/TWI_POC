@@ -4,10 +4,9 @@ This provides persistent checkpointing so graph state survives container restart
 and multiple replicas can share state.
 """
 
-import json
 import logging
 from datetime import datetime, timezone
-from typing import Any, Sequence
+from typing import Sequence
 
 from langchain_core.runnables import RunnableConfig
 from langgraph.checkpoint.base import (
