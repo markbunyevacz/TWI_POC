@@ -77,10 +77,12 @@ result = await graph.ainvoke(None, config)
 ```
 
 Resume state updates (built by `_build_resume_state()`):
-- After revision request: `{"status": "revision_requested", "revision_feedback": "..."}`
+- After revision request: `{"status": "revision_requested", "revision_feedback": "..."}` with `as_node="review"`
 - After final approval: `{"status": "approved", "approval_timestamp": "..."}` with `as_node="approve"`
 - After rejection: `{"status": "rejected"}` with `as_node="review"`
 - Unknown `resume_from` value: raises `ValueError`
+
+**IMPORTANT:** Every resume from an interrupt MUST pass the correct `as_node` so LangGraph evaluates the outgoing edges instead of re-running the interrupted node (which would overwrite the patched status).
 
 ## Node Implementation Pattern
 

@@ -300,7 +300,7 @@ class TestBotHandler:
 
 
 class TestRequestEditSource:
-    """Verify that request_edit from the approval card passes as_node='review'."""
+    """Verify that request_edit always passes as_node='review' regardless of source."""
 
     @pytest.mark.asyncio
     async def test_request_edit_from_approval_card_passes_as_node_review(self):
@@ -337,8 +337,9 @@ class TestRequestEditSource:
             assert kwargs["as_node"] == "review"
 
     @pytest.mark.asyncio
-    async def test_request_edit_from_review_card_passes_as_node_none(self):
-        """Edit from the review card should NOT override as_node."""
+    async def test_request_edit_from_review_card_passes_as_node_review(self):
+        """Edit from the review card must also pass as_node='review' so
+        after_review evaluates directly (review_node would reset status)."""
         from app.bot.bot_handler import AgentizeBotHandler
 
         handler = AgentizeBotHandler()
@@ -367,7 +368,7 @@ class TestRequestEditSource:
 
             mock_run.assert_called_once()
             _, kwargs = mock_run.call_args
-            assert kwargs["as_node"] is None
+            assert kwargs["as_node"] == "review"
 
 
 class TestFinalApproveAsNode:

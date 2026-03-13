@@ -392,11 +392,12 @@ class AgentizeBotHandler(ActivityHandler):
 
         elif action == "request_edit":
             # Revision requested → resume graph with revision feedback.
-            # When the edit comes from the approval card, we must tell
-            # LangGraph to re-evaluate from the "review" node so the
-            # after_review conditional edge routes to "revise".
+            # as_node="review" tells LangGraph that this state update
+            # comes from the review node, so it evaluates after_review
+            # directly instead of re-running review_node (which would
+            # overwrite status back to "review_needed").
             feedback = value.get("feedback", "")
-            resume_as_node = "review" if value.get("source") == "approval" else None
+            resume_as_node = "review"
 
             await turn_context.send_activity(
                 "⏳ Módosítom a szerkesztési kérésed alapján..."
