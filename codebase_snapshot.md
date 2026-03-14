@@ -56,6 +56,7 @@ TWI_POC/
 ├── go_live_guide.md                                 [doc]
 ├── INSTALL.md                                       [doc]
 ├── PETER_GAP.md                                     [doc]
+├── README.md                                        [doc]
 ├── specification.md                                 [doc]
 ├── poc-backend/
 │   ├── .devcontainer/
@@ -99,6 +100,11 @@ TWI_POC/
 │   │   │   ├── audit_entry.py                       [code]
 │   │   │   ├── conversation.py                      [code]
 │   │   │   └── twi_document.py                      [code]
+│   │   ├── locale/
+│   │   │   ├── __init__.py                          [code]
+│   │   │   ├── registry.py                          [code]
+│   │   │   ├── hu.py                                [code]
+│   │   │   └── en.py                                [code]
 │   │   ├── services/
 │   │   │   ├── __init__.py                          [code]
 │   │   │   ├── ai_foundry.py                        [code]
