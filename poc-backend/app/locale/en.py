@@ -8,31 +8,26 @@ STRINGS: dict[str, str] = {
     "bot.error": "❌ Error: {message}",
     "bot.error_generic": "An error occurred. Please try again.",
     "bot.status": "Status: {status}",
-
     # Bot handler — clarification
     "bot.clarify_fallback": (
         "Please clarify your request. For example: "
         '"Create a TWI instruction for the daily maintenance of the CNC-01 machine."'
     ),
-
     # Bot handler — Telegram review
     "telegram.review.title_default": "TWI Work Instruction",
     "telegram.review.prompt": "Please reply with one of the following:",
     "telegram.review.approve": "✅ *Approve* - finalize",
     "telegram.review.edit": "🔄 *Edit* - request changes",
     "telegram.review.reject": "❌ *Reject* - discard",
-
     # Bot handler — Telegram approval
     "telegram.approval.title_default": "Final Approval",
     "telegram.approval.body": "The document is ready! Shall I finalize and generate the PDF?",
     "telegram.approval.prompt": "Please reply:",
     "telegram.approval.yes": "✅ *Yes* - Generate PDF",
     "telegram.approval.no": "❌ *No* - Reject",
-
     # Bot handler — Telegram result
     "telegram.result.header": "✅ *Document ready!*",
     "telegram.result.approved_by_default": "Unknown",
-
     # Bot handler — Telegram text commands
     "telegram.revision_prompt": "Please describe the changes you'd like to make to the document:",
     "telegram.revision_processing": "⏳ Applying your edits...",
@@ -47,7 +42,6 @@ STRINGS: dict[str, str] = {
         "🔄 *Edit* - request changes\n\n"
         "Or send a new request to generate a new document."
     ),
-
     # Bot handler — card actions
     "card.approve_processing": "⏳ Finalizing...",
     "card.revision_processing": "⏳ Applying your edits...",
@@ -57,7 +51,6 @@ STRINGS: dict[str, str] = {
     "card.error": "❌ Error: {error}",
     "card.rejected": "🗑️ Draft discarded. Send a new request to start over.",
     "card.title_default": "TWI Work Instruction",
-
     # Adaptive Cards
     "card.review.header": "📋 TWI Draft — Review Required",
     "card.review.ai_warning": "⚠️ AI-generated content | Model: {model} | Generated: {generated_at}",
@@ -66,7 +59,6 @@ STRINGS: dict[str, str] = {
     "card.review.approve_btn": "✅ Approve draft",
     "card.review.edit_btn": "✏️ Request edit",
     "card.review.reject_btn": "🗑️ Discard",
-
     "card.approval.header": "🔒 Final Approval — Mandatory",
     "card.approval.warning": (
         "⚠️ This document contains AI-generated content. "
@@ -75,7 +67,6 @@ STRINGS: dict[str, str] = {
     ),
     "card.approval.confirm_btn": "✅ I have reviewed and approve",
     "card.approval.back_btn": "↩️ Back to editing",
-
     "card.result.header": "✅ Document ready",
     "card.result.title_label": "Title:",
     "card.result.format_label": "Format:",
@@ -83,7 +74,6 @@ STRINGS: dict[str, str] = {
     "card.result.model_label": "Model:",
     "card.result.approved_by_label": "Approved by:",
     "card.result.download_btn": "📥 Download PDF",
-
     "card.welcome.greeting": "👋 Welcome! I'm the agentize.eu AI assistant.",
     "card.welcome.description": (
         "I can help generate TWI (Training Within Industry) work instructions. "

@@ -381,9 +381,7 @@ class AgentizeBotHandler(ActivityHandler):
                 )
             except Exception as exc:  # noqa: BLE001
                 logger.error("Agent revision error: %s", exc, exc_info=True)
-                await turn_context.send_activity(
-                    t("card.revision_error", error=exc)
-                )
+                await turn_context.send_activity(t("card.revision_error", error=exc))
                 return
 
             if is_telegram:
