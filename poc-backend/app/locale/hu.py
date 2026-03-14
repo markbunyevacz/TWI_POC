@@ -13,20 +13,20 @@ STRINGS: dict[str, str] = {
         "Kérlek pontosítsd a kérésedet. Például: "
         '"Készíts egy TWI utasítást a CNC-01 gép napi karbantartásáról."'
     ),
-    # Bot handler — Telegram review
+    # Bot handler — Telegram review (plain text, no Markdown — avoids MarkdownV2 parse errors)
     "telegram.review.title_default": "TWI Munkautasítás",
     "telegram.review.prompt": "Kérlek válaszolj a következőkkel:",
-    "telegram.review.approve": "✅ *Elfogadás* - véglegesítés",
-    "telegram.review.edit": "🔄 *Módosítás* - kérek változtatást",
-    "telegram.review.reject": "❌ *Elutasítás* - törlés",
-    # Bot handler — Telegram approval
+    "telegram.review.approve": "✅ Elfogadás - véglegesítés",
+    "telegram.review.edit": "🔄 Módosítás - kérek változtatást",
+    "telegram.review.reject": "❌ Elutasítás - törlés",
+    # Bot handler — Telegram approval (plain text)
     "telegram.approval.title_default": "Véglegesítés",
     "telegram.approval.body": "A dokumentum elkészült! Véglegesítsem és PDF-et generáljak?",
     "telegram.approval.prompt": "Kérlek válaszolj:",
-    "telegram.approval.yes": "✅ *Igen* - PDF generálás",
-    "telegram.approval.no": "❌ *Nem* - elutasítás",
-    # Bot handler — Telegram result
-    "telegram.result.header": "✅ *Dokumentum elkészült!*",
+    "telegram.approval.yes": "✅ Igen - PDF generálás",
+    "telegram.approval.no": "❌ Nem - elutasítás",
+    # Bot handler — Telegram result (plain text)
+    "telegram.result.header": "✅ Dokumentum elkészült!",
     "telegram.result.approved_by_default": "Ismeretlen",
     # Bot handler — Telegram text commands
     "telegram.revision_prompt": "Kerlek ird le a modositasi kereseidet a dokumentumhoz:",
@@ -37,9 +37,9 @@ STRINGS: dict[str, str] = {
     "telegram.rejected": "🗑️ Elvettem a vazlatot. Uj keressel indithatsz ujat.",
     "telegram.help": (
         "Nem ertem a valaszod. Kerlek hasznald a kovetkezo parancsokat:\n\n"
-        "✅ *Igen* - dokumentum elfogadasa es PDF generalas\n"
-        "❌ *Nem* - dokumentum elutasitasa\n"
-        "🔄 *Modositas* - modositas kérése\n\n"
+        "✅ Igen - dokumentum elfogadasa es PDF generalas\n"
+        "❌ Nem - dokumentum elutasitasa\n"
+        "🔄 Modositas - modositas kerese\n\n"
         "Vagy kuldj egy uj kerest uj dokumentum generalasahoz."
     ),
     # Bot handler — card actions

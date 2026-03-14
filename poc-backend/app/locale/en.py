@@ -13,20 +13,20 @@ STRINGS: dict[str, str] = {
         "Please clarify your request. For example: "
         '"Create a TWI instruction for the daily maintenance of the CNC-01 machine."'
     ),
-    # Bot handler — Telegram review
+    # Bot handler — Telegram review (plain text, no Markdown — avoids MarkdownV2 parse errors)
     "telegram.review.title_default": "TWI Work Instruction",
     "telegram.review.prompt": "Please reply with one of the following:",
-    "telegram.review.approve": "✅ *Approve* - finalize",
-    "telegram.review.edit": "🔄 *Edit* - request changes",
-    "telegram.review.reject": "❌ *Reject* - discard",
-    # Bot handler — Telegram approval
+    "telegram.review.approve": "✅ Approve - finalize",
+    "telegram.review.edit": "🔄 Edit - request changes",
+    "telegram.review.reject": "❌ Reject - discard",
+    # Bot handler — Telegram approval (plain text)
     "telegram.approval.title_default": "Final Approval",
     "telegram.approval.body": "The document is ready! Shall I finalize and generate the PDF?",
     "telegram.approval.prompt": "Please reply:",
-    "telegram.approval.yes": "✅ *Yes* - Generate PDF",
-    "telegram.approval.no": "❌ *No* - Reject",
-    # Bot handler — Telegram result
-    "telegram.result.header": "✅ *Document ready!*",
+    "telegram.approval.yes": "✅ Yes - Generate PDF",
+    "telegram.approval.no": "❌ No - Reject",
+    # Bot handler — Telegram result (plain text)
+    "telegram.result.header": "✅ Document ready!",
     "telegram.result.approved_by_default": "Unknown",
     # Bot handler — Telegram text commands
     "telegram.revision_prompt": "Please describe the changes you'd like to make to the document:",
@@ -37,9 +37,9 @@ STRINGS: dict[str, str] = {
     "telegram.rejected": "🗑️ Draft discarded. Send a new request to start over.",
     "telegram.help": (
         "I didn't understand your response. Please use one of these commands:\n\n"
-        "✅ *Yes* - approve document and generate PDF\n"
-        "❌ *No* - reject document\n"
-        "🔄 *Edit* - request changes\n\n"
+        "✅ Yes - approve document and generate PDF\n"
+        "❌ No - reject document\n"
+        "🔄 Edit - request changes\n\n"
         "Or send a new request to generate a new document."
     ),
     # Bot handler — card actions

@@ -31,7 +31,7 @@ class TestTelegramHelpers:
 
         result = _format_telegram_review(draft, metadata)
 
-        assert "📋 *CNC-01 gép beállítása*" in result
+        assert "📋 CNC-01 gép beállítása" in result
         assert "mistral-large" in result
         assert "2026-03-06" in result
         assert "CNC-01 beállítása" in result
@@ -47,7 +47,7 @@ class TestTelegramHelpers:
 
         result = _format_telegram_approval("draft content", metadata)
 
-        assert "📄 *Végleges dokumentum*" in result
+        assert "📄 Végleges dokumentum" in result
         assert "Igen" in result
         assert "Nem" in result
 
@@ -61,7 +61,7 @@ class TestTelegramHelpers:
             "https://example.com/file.pdf", "CNC-01 beállítás", metadata
         )
 
-        assert "✅ *Dokumentum elkészült!*" in result
+        assert "✅ Dokumentum elkészült!" in result
         assert "CNC-01 beállítás" in result
         assert "user-123" in result
         assert "https://example.com/file.pdf" in result

@@ -23,17 +23,17 @@ def _is_telegram_channel(channel_id: str) -> bool:
 
 
 def _format_telegram_review(draft: str, metadata: dict) -> str:
-    """Format draft content for Telegram (no Adaptive Cards support)."""
+    """Format draft content for Telegram as plain text (no Markdown parsing)."""
     title = metadata.get("title", t("telegram.review.title_default"))
     model = metadata.get("model", "N/A")
     generated_at = metadata.get("generated_at", "N/A")
 
-    text = f"📋 *{title}*\n\n"
-    text += f"_Model: {model} | Generated: {generated_at}_\n\n"
-    text += f"```\n{draft[:500]}"
-    if len(draft) > 500:
-        text += "... (truncated)"
-    text += "\n```\n\n"
+    text = f"📋 {title}\n\n"
+    text += f"Model: {model} | Generated: {generated_at}\n\n"
+    text += draft[:2000]
+    if len(draft) > 2000:
+        text += "\n... (csonkolt)"
+    text += "\n\n"
     text += t("telegram.review.prompt") + "\n"
     text += t("telegram.review.approve") + "\n"
     text += t("telegram.review.edit") + "\n"
@@ -42,10 +42,10 @@ def _format_telegram_review(draft: str, metadata: dict) -> str:
 
 
 def _format_telegram_approval(draft: str, metadata: dict) -> str:
-    """Format final approval request for Telegram."""
+    """Format final approval request for Telegram as plain text."""
     title = metadata.get("title", t("telegram.approval.title_default"))
 
-    text = f"📄 *{title}*\n\n"
+    text = f"📄 {title}\n\n"
     text += t("telegram.approval.body") + "\n\n"
     text += t("telegram.approval.prompt") + "\n"
     text += t("telegram.approval.yes") + "\n"
@@ -54,10 +54,10 @@ def _format_telegram_approval(draft: str, metadata: dict) -> str:
 
 
 def _format_telegram_result(pdf_url: str, document_title: str, metadata: dict) -> str:
-    """Format result message for Telegram."""
+    """Format result message for Telegram as plain text."""
     approved_by = metadata.get("approved_by", t("telegram.result.approved_by_default"))
     text = t("telegram.result.header") + "\n\n"
-    text += f"📄 *{document_title}*\n\n"
+    text += f"📄 {document_title}\n\n"
     text += f"👤 {t('card.result.approved_by_label')} {approved_by}\n"
     text += f"📥 {t('card.result.download_btn')}: {pdf_url}"
     return text
@@ -229,6 +229,7 @@ class AgentizeBotHandler(ActivityHandler):
                     conversation_id=conversation_id,
                     resume_from="revision",
                     context={"feedback": text},
+                    as_node="review",
                 )
             except Exception as exc:
                 logger.error("Telegram revision error: %s", exc, exc_info=True)
@@ -326,6 +327,7 @@ class AgentizeBotHandler(ActivityHandler):
                     conversation_id=conversation_id,
                     resume_from="revision",
                     context={"feedback": feedback},
+                    as_node="review",
                 )
             except Exception as exc:
                 logger.error("Telegram revision error: %s", exc, exc_info=True)
