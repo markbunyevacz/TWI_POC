@@ -217,23 +217,33 @@ class TestBotHandler:
         assert any("Elvettem" in str(c) or "törlés" in str(c) for c in call_args)
 
     @pytest.mark.asyncio
-    async def test_handle_telegram_text_unknown_command(self):
-        """Test handling unknown command from Telegram."""
+    async def test_handle_telegram_text_unknown_forwards_to_agent(self):
+        """Test that unrecognized Telegram text is forwarded to LangGraph as a new request."""
         from app.bot.bot_handler import AgentizeBotHandler
 
         handler = AgentizeBotHandler()
+        handler._get_graph = AsyncMock(return_value=MagicMock())
 
         turn_context = MagicMock()
         turn_context.send_activity = AsyncMock()
 
-        await handler._handle_telegram_text(
-            turn_context, "random text", "conv-123", "user-456"
-        )
+        with patch("app.bot.bot_handler.run_agent", new_callable=AsyncMock) as mock_run:
+            mock_run.return_value = {
+                "status": "review_needed",
+                "draft": "generated draft",
+                "draft_metadata": {"model": "gpt-4o", "generated_at": "now"},
+            }
+            await handler._handle_telegram_text(
+                turn_context,
+                "Készíts TWI utasítást a CNC-01 géphez",
+                "conv-123",
+                "user-456",
+            )
 
-        call_args = [str(c) for c in turn_context.send_activity.call_args_list]
-        assert any(
-            "parancsokat" in str(c) or "help" in str(c).lower() for c in call_args
-        )
+            mock_run.assert_called_once()
+            _, kwargs = mock_run.call_args
+            assert kwargs["channel"] == "telegram"
+            assert kwargs["message"] == "Készíts TWI utasítást a CNC-01 géphez"
 
     @pytest.mark.asyncio
     async def test_handle_card_action_approve_draft_telegram(self):
@@ -481,6 +491,53 @@ class TestTelegramRevisionFeedback:
             "conv-123", "pending_revision"
         )
         assert is_still_set is False
+
+
+class TestTelegramInlineRevision:
+    """Verify Telegram inline revision: 'Módosítás: [feedback]' as a single message."""
+
+    @pytest.mark.asyncio
+    async def test_inline_modositas_with_feedback(self):
+        from app.bot.bot_handler import AgentizeBotHandler
+
+        handler = AgentizeBotHandler()
+        handler._get_graph = AsyncMock(return_value=MagicMock())
+
+        turn_context = MagicMock()
+        turn_context.send_activity = AsyncMock()
+
+        with patch("app.bot.bot_handler.run_agent", new_callable=AsyncMock) as mock_run:
+            mock_run.return_value = {
+                "draft": "revised draft",
+                "draft_metadata": {"model": "gpt-4o", "generated_at": "now"},
+            }
+            await handler._handle_telegram_text(
+                turn_context,
+                "Módosítás: add hőmérséklet ellenőrzést",
+                "conv-123",
+                "user-456",
+            )
+
+            mock_run.assert_called_once()
+            _, kwargs = mock_run.call_args
+            assert kwargs["resume_from"] == "revision"
+            assert kwargs["context"]["feedback"] == "add hőmérséklet ellenőrzést"
+
+    @pytest.mark.asyncio
+    async def test_inline_modositas_empty_feedback_prompts(self):
+        from app.bot.bot_handler import AgentizeBotHandler
+
+        handler = AgentizeBotHandler()
+
+        turn_context = MagicMock()
+        turn_context.send_activity = AsyncMock()
+
+        await handler._handle_telegram_text(
+            turn_context, "Módosítás:", "conv-123", "user-456"
+        )
+
+        call_args = [str(c) for c in turn_context.send_activity.call_args_list]
+        assert len(call_args) == 1
 
 
 class TestBotHandlerEdgeCases:

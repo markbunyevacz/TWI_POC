@@ -310,8 +310,39 @@ class AgentizeBotHandler(ActivityHandler):
             await self._pending_state.set_flag(conversation_id, "pending_revision")
             await turn_context.send_activity(t("telegram.revision_prompt"))
 
+        elif text_lower.startswith(
+            ("modositas:", "módosítás:", "change:", "modify:", "revise:")
+        ):
+            feedback = text.split(":", 1)[1].strip()
+            if not feedback:
+                await turn_context.send_activity(t("telegram.revision_prompt"))
+                return
+            await turn_context.send_activity(t("telegram.revision_processing"))
+            try:
+                result = await run_agent(
+                    graph=await self._get_graph(),
+                    message=feedback,
+                    user_id=user_id,
+                    conversation_id=conversation_id,
+                    resume_from="revision",
+                    context={"feedback": feedback},
+                )
+            except Exception as exc:
+                logger.error("Telegram revision error: %s", exc, exc_info=True)
+                await turn_context.send_activity(
+                    t("telegram.revision_error", error=exc)
+                )
+                return
+            reply = _format_telegram_review(
+                result.get("draft", ""),
+                result.get("draft_metadata", {}),
+            )
+            await turn_context.send_activity(reply)
+
         else:
-            await turn_context.send_activity(t("telegram.help"))
+            await self._handle_text_message(
+                turn_context, text, conversation_id, user_id, "telegram"
+            )
 
     # ------------------------------------------------------------------
     # Adaptive Card action -> LangGraph resume
