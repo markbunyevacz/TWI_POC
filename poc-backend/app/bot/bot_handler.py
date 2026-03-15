@@ -316,6 +316,7 @@ class AgentizeBotHandler(ActivityHandler):
         ):
             feedback = text.split(":", 1)[1].strip()
             if not feedback:
+                await self._pending_state.set_flag(conversation_id, "pending_revision")
                 await turn_context.send_activity(t("telegram.revision_prompt"))
                 return
             await turn_context.send_activity(t("telegram.revision_processing"))

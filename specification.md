@@ -2,8 +2,8 @@
 
 | Field | Value |
 |---|---|
-| **Version** | 1.4 |
-| **Date** | 2026-03-13 |
+| **Version** | 1.5 |
+| **Date** | 2026-03-14 |
 | **Status** | Implemented |
 | **Owner** | agentize.eu |
 | **Confidentiality** | Internal |
@@ -276,9 +276,8 @@ Telegram does not support Adaptive Cards. The bot implements the same logical wo
 
 **Telegram-specific limitations (PoC):**
 
-- **No second approval checkpoint:** The Telegram flow currently skips the `approve` interrupt and proceeds directly from draft approval to PDF generation. This is a known PoC simplification. For production, a text-based confirmation step should be added.
-- **No structured feedback parsing:** User feedback on Telegram is free-form text; there is no form validation. If the user sends an unrecognized keyword, the bot re-prompts.
-- **Message length limit:** Telegram messages are capped at 4,096 characters. Long drafts are split across multiple messages with a *"(folytatás...)"* indicator.
+- **No structured feedback parsing:** User feedback on Telegram is free-form text; there is no form validation. If the user sends an unrecognized keyword, the bot falls through to `_handle_text_message()` (starting a new generation).
+- **Draft truncation:** `_format_telegram_review()` truncates drafts at 500 characters due to Telegram's 4,096-character message limit. Full draft content is retained in graph state for revision and PDF generation.
 - **No inline buttons:** The PoC uses keyword-based commands rather than Telegram inline keyboards. Adding inline buttons would improve UX but is out of scope.
 - **No file upload:** PDF is delivered as a download URL, not as a file attachment. Telegram supports file sending via the Bot API, but this is not implemented in the PoC.
 
@@ -750,22 +749,22 @@ Class methods:
 
 | Method | Purpose |
 |---|---|
-| `__init__()` | Initialises conversation store; graph is lazy-loaded |
+| `__init__()` | Initialises conversation store + pending state store; graph is lazy-loaded |
 | `_get_graph()` | Lazy singleton access to the compiled LangGraph graph |
 | `on_message_activity()` | Entry point for all incoming messages; dispatches to the three handlers above |
 | `on_members_added_activity()` | Sends Welcome card when bot is added to a conversation |
 | `_handle_text_message()` | Invokes `run_agent()`, sends Review card or error message |
 | `_handle_card_action()` | Routes Adaptive Card submit actions (see table below) |
-| `_handle_telegram_text()` | Parses Telegram text commands (`igen`, `nem`, `modositas`) and resumes graph |
+| `_handle_telegram_text()` | Parses Telegram text commands (`igen`, `nem`, `modositas`) and resumes graph with correct `as_node` |
 | `_handle_telegram_response()` | Formats LangGraph result as Telegram markdown text |
-| `_send_card()` | Static method; sends Adaptive Card on Teams or falls back to plain text on Telegram |
+| `_send_card()` | Static method; sends Adaptive Card via `CardFactory` |
 
 Module-level Telegram helpers (not class methods):
 
 | Function | Purpose |
 |---|---|
 | `_is_telegram_channel(channel_id)` | Returns `True` if channel is Telegram |
-| `_format_telegram_review(draft, metadata)` | Formats draft as Telegram markdown with approve/edit/reject options |
+| `_format_telegram_review(draft, metadata)` | Formats draft as Telegram markdown with approve/edit/reject keyword prompts |
 | `_format_telegram_approval(draft, metadata)` | Formats final approval prompt for Telegram |
 | `_format_telegram_result(pdf_url, title, metadata)` | Formats result with download link for Telegram |
 
@@ -1224,4 +1223,4 @@ The original spec (`poc_technical_spec.md` v1.0) pinned dependencies with `==x.y
 ---
 
 *agentize.eu -- AI & Organizational Solutions*
-*Implementation Specification v1.4 -- 2026-03-13*
+*Implementation Specification v1.5 -- 2026-03-14*

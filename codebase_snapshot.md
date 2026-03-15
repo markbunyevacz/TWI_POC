@@ -2,8 +2,8 @@
 
 | Field | Value |
 |---|---|
-| **Version** | 2.2 |
-| **Date** | 2026-03-13 |
+| **Version** | 2.3 |
+| **Date** | 2026-03-14 |
 | **Status** | Reference |
 | **Owner** | agentize.eu |
 | **Confidentiality** | Internal |
@@ -314,11 +314,11 @@ The main entry point is `app/main.py` (FastAPI app), which exposes three routes:
 - **External deps:** `jinja2`, `weasyprint`, `markdown`.
 
 #### `poc-backend/app/bot/bot_handler.py`
-- **Purpose:** Bot Framework activity handler; routes text messages, Adaptive Card actions, and Telegram text to LangGraph.
+- **Purpose:** Bot Framework activity handler; routes Adaptive Card actions, Telegram text commands, and plain text messages to LangGraph.
 - **Key classes:** `AgentizeBotHandler(ActivityHandler)`.
-- **Key methods:** `on_message_activity()`, `on_members_added_activity()`, `_handle_text_message()`, `_handle_card_action()`, `_handle_telegram_text()`, `_handle_telegram_response()`, `_send_card()` (with Telegram fallback).
+- **Key methods:** `on_message_activity()`, `on_members_added_activity()`, `_handle_text_message()`, `_handle_card_action()`, `_handle_telegram_text()`, `_handle_telegram_response()`, `_send_card()`.
 - **Module-level helpers:** `_is_telegram_channel()`, `_format_telegram_review()`, `_format_telegram_approval()`, `_format_telegram_result()`.
-- **External deps:** `botbuilder.core`, `app.agent.graph.get_graph`/`run_agent`, `app.bot.adaptive_cards`, `app.services.cosmos_db.ConversationStore`.
+- **External deps:** `botbuilder.core`, `app.agent.graph.get_graph`/`run_agent`, `app.bot.adaptive_cards`, `app.services.cosmos_db.ConversationStore`, `app.services.cosmos_db.PendingStateStore`.
 
 #### `poc-backend/app/bot/adaptive_cards.py`
 - **Purpose:** Builds Adaptive Card JSON payloads for all four bot interaction points.
@@ -613,18 +613,29 @@ No gaps identified.
 ---
 
 ### LangGraph Resume Pattern in bot_handler.py
-**Status: FIXED (2026-03-13)**
+**Status: FIXED (2026-03-14)**
 
-The resume flow in `bot_handler.py` works as follows:
-1. `_handle_card_action()` receives a card submission with `action` field
-2. For `"request_edit"`: calls `run_agent(resume_from="revision", context={"feedback": feedback}, as_node="review")`
-3. For `"final_approve"`: calls `run_agent(resume_from="output", context={"timestamp": timestamp}, as_node="approve")`
-4. For `"reject"`: calls `run_agent(resume_from="rejection", as_node="review")`
-5. `run_agent()` in `graph.py`: calls `graph.aupdate_state(config, state_update, as_node=as_node)` then `graph.ainvoke(None, config)`
+The resume flow in `bot_handler.py` has two entry paths — card actions and Telegram text commands — both converging on `run_agent()`:
+
+**Card actions** (`_handle_card_action()`):
+1. For `"request_edit"`: calls `run_agent(resume_from="revision", context={"feedback": feedback}, as_node="review")`
+2. For `"final_approve"`: calls `run_agent(resume_from="output", context={"timestamp": timestamp}, as_node="approve")`
+3. For `"reject"`: calls `run_agent(resume_from="rejection", as_node="review")`
+
+**Telegram text commands** (`_handle_telegram_text()`):
+1. `igen`/`yes`/`elfogad` → calls `run_agent(resume_from="output", context={"timestamp": ...}, as_node="approve")`
+2. `nem`/`no`/`elutasit` → calls `run_agent(resume_from="rejection", as_node="review")`
+3. `módosítás: <feedback>` (colon-prefixed) → calls `run_agent(resume_from="revision", context={"feedback": ...}, as_node="review")`
+4. Pending revision follow-up (after `modositas` keyword sets flag via `PendingStateStore`) → calls `run_agent(resume_from="revision", context={"feedback": ...}, as_node="review")`
+
+All paths converge on `run_agent()` in `graph.py`, which calls `graph.aupdate_state(config, state_update, as_node=as_node)` then `graph.ainvoke(None, config)`.
 
 **Key invariant:** Every `aupdate_state` call passes `as_node` so LangGraph evaluates the outgoing conditional edge directly instead of re-running the interrupted node. Without `as_node`, `review_node` would re-execute and overwrite `status` back to `"review_needed"`, breaking the revision loop.
 
-**Previously fixed bug (2026-03-13):** The `request_edit` handler originally passed `as_node=None` when the edit came from the review card (only the approval card case passed `as_node="review"`). This caused `review_node` to reset the status, preventing the revision loop from triggering. The fix was to always pass `as_node="review"` for all `request_edit` actions.
+**Fix history:**
+
+1. **(2026-03-13)** Card action `request_edit` originally passed `as_node=None` when the edit came from the review card. Fixed to always pass `as_node="review"`.
+2. **(2026-03-14)** Telegram inline revision paths (both colon-prefixed and pending-revision follow-up) passed `resume_from="revision"` but omitted `as_node="review"`. Fixed to include `as_node="review"` on both paths.
 
 **Remaining notes:**
 
@@ -633,20 +644,27 @@ The resume flow in `bot_handler.py` works as follows:
 ---
 
 ### Telegram Channel Handling
-**Status: PARTIAL**
+**Status: IMPLEMENTED (2026-03-14)**
 
 **Implemented:**
 - `main.bicep:503-514`: Telegram channel resource (conditional on `telegramBotToken` being non-empty)
 - `config.py:28`: `telegram_bot_token` configuration field
-- `bot_handler.py:295-297`: `_is_telegram()` static method
-- `bot_handler.py:328-346`: Telegram fallback in `_send_card()` -- extracts TextBlock text, FactSet facts, and Action.OpenUrl links into plain text
-- `bot_handler.py:315-326`: Detailed docstring warning about Telegram limitations
+- `bot_handler.py`: `_is_telegram_channel()` module-level helper for channel detection
+- `bot_handler.py`: `_handle_telegram_text()` — full interactive workflow via text keywords
+- `bot_handler.py`: `_handle_telegram_response()` — formats LangGraph results as Telegram markdown
+- `bot_handler.py`: `_format_telegram_review()`, `_format_telegram_approval()`, `_format_telegram_result()` — Telegram-specific message formatters
+- `cosmos_db.py`: `PendingStateStore` — tracks multi-step Telegram interactions (e.g., revision flag between keyword and follow-up message)
 
-**Missing / Not Implemented:**
-- **Interactive actions on Telegram are NOT supported.** The Telegram fallback silently drops `Action.Submit` and `Input.Text` elements (documented in docstring at lines 315-326). A Telegram user can view generated drafts and download PDFs via URL, but **cannot approve, reject, or request edits**. This makes the Telegram channel effectively read-only for the TWI workflow.
-- **No Telegram inline keyboard adapter.** The docstring at line 325-326 acknowledges this: "Full Telegram interactive support would require a dedicated inline-keyboard adapter (not yet implemented)."
-- **`_is_telegram()` is unused.** The actual Telegram check is done via `channel_id == "telegram"` at line 328, not via the static method.
-- **`_send_message()` ignores channel_id.** Despite accepting the parameter, it sends identical plain text regardless of channel (line 304). No Telegram-specific Markdown formatting (bold, links, etc.).
+**Interactive actions on Telegram:**
+- **Approve:** User sends `igen` / `yes` / `elfogad` / `approve` → resumes graph with `resume_from="output"`, `as_node="approve"`
+- **Reject:** User sends `nem` / `no` / `elutasit` / `reject` → resumes graph with `resume_from="rejection"`, `as_node="review"`
+- **Revise (inline):** User sends `módosítás: <feedback>` → resumes graph with `resume_from="revision"`, `as_node="review"`
+- **Revise (two-step):** User sends `modositas` → bot sets `pending_revision` flag and prompts for feedback → user sends feedback text → resumes graph with `resume_from="revision"`, `as_node="review"`
+
+**Remaining limitations (PoC):**
+- **No Telegram inline keyboards.** Interaction relies on text keyword matching rather than inline buttons.
+- **Draft truncation.** `_format_telegram_review()` truncates drafts at 500 characters (Telegram has a 4,096-char message limit).
+- **No file attachment delivery.** PDF is delivered as a SAS URL, not as a Telegram file upload.
 
 ---
 

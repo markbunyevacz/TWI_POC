@@ -9,12 +9,13 @@ description: Bot Framework and Adaptive Cards guide for the agentize.eu PoC. Cov
 
 `AgentizeBotHandler` in `app/bot/bot_handler.py` extends `ActivityHandler`.
 
-Two entry paths in `on_message_activity`:
+Three entry paths in `on_message_activity`:
 
 | Condition | Handler | Description |
 |-----------|---------|-------------|
 | `activity.value` present | `_handle_card_action()` | Adaptive Card submit action |
-| plain text | `_handle_text_message()` | New user message → LangGraph |
+| Telegram channel, no value | `_handle_telegram_text()` | Text commands (approve/reject/edit) → LangGraph resume |
+| Other channels, no value | `_handle_text_message()` | New user message → LangGraph |
 
 ## Text Message Flow
 
@@ -45,7 +46,19 @@ async def _handle_text_message(self, turn_context, text, conversation_id, user_i
 | `final_approve` | Send thinking, then `create_result_card()` | `resume_from="output"` | `"approve"` |
 | `reject` | Send rejection message | `resume_from="rejection"` | `"review"` |
 
-**CRITICAL:** Every resume call passes `as_node` so LangGraph evaluates the outgoing edge directly instead of re-running the interrupted node.
+## Telegram Text Resume Routing
+
+`_handle_telegram_text()` maps keywords to graph resumes. Uses `PendingStateStore` for two-step revision flow.
+
+| Keyword(s) | Graph resume | `as_node` |
+|---|---|---|
+| `igen`, `yes`, `elfogad`, `approve` | `resume_from="output"` | `"approve"` |
+| `nem`, `no`, `elutasit`, `reject` | `resume_from="rejection"` | `"review"` |
+| `módosítás: <feedback>` (colon-prefixed) | `resume_from="revision"` | `"review"` |
+| pending revision follow-up | `resume_from="revision"` | `"review"` |
+| unrecognized text | Falls through to `_handle_text_message()` | — |
+
+**CRITICAL:** Every resume call — card action **or** Telegram text — must pass `as_node` so LangGraph evaluates the outgoing edge directly instead of re-running the interrupted node.
 
 ## Adaptive Card Templates
 

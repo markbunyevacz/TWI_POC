@@ -7,9 +7,10 @@ alwaysApply: false
 # Bot Framework + Adaptive Cards Patterns
 
 ## Message Routing
-`on_message_activity` distinguishes two paths:
+`on_message_activity` distinguishes three paths:
 1. `turn_context.activity.value` is set → Adaptive Card submit → `_handle_card_action()`
-2. No value → plain text → `_handle_text_message()`
+2. Telegram channel, no value → text commands (approve/reject/edit) → `_handle_telegram_text()`
+3. All other channels, no value → plain text → `_handle_text_message()`
 
 Never mix these paths.
 
@@ -23,7 +24,18 @@ All `Action.Submit` data payloads must include an `"action"` key. Recognized val
 | `final_approve` | Resume graph → PDF generation | `"approve"` |
 | `reject` | Resume graph → audit trail, inform user | `"review"` |
 
-**CRITICAL:** `request_edit` must always pass `as_node="review"` regardless of whether the edit comes from the review card or the approval card. Without it, `review_node` re-executes and resets `status` to `"review_needed"`, preventing the revision loop from triggering.
+## Telegram Text Commands
+`_handle_telegram_text()` maps text keywords to graph resumes:
+
+| keyword(s) | graph resume | `as_node` |
+|---|---|---|
+| `igen`, `yes`, `elfogad`, `approve` | `resume_from="output"` | `"approve"` |
+| `nem`, `no`, `elutasit`, `reject` | `resume_from="rejection"` | `"review"` |
+| `modositas`, `change`, `revise` | Sets `pending_revision` flag, waits for next message | — |
+| `módosítás: <feedback>` (colon-prefixed) | `resume_from="revision"` | `"review"` |
+| pending revision follow-up text | `resume_from="revision"` | `"review"` |
+
+**CRITICAL:** Every graph resume — whether from a card action **or** a Telegram text command — must pass the correct `as_node`. Without it, the interrupted node (e.g. `review_node`) re-executes and overwrites the patched status, preventing conditional edges from routing correctly.
 
 ## Card Text Length
 Adaptive Cards have a 2000-character display limit. Always truncate draft text:
